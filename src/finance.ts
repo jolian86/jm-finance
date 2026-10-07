@@ -1,14 +1,30 @@
 export type Income = { id: string; name: string; amount: number };
-export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel' };
+export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel'; dueDay?: number };
 export type DebtType = 'cartao_rotativo' | 'cheque_especial' | 'emprestimo_pessoal' | 'consignado' | 'financiamento' | 'outro';
-export type Debt = { id: string; name: string; type: DebtType; balance: number; rate: number; minPayment: number };
+export type Debt = { id: string; name: string; type: DebtType; balance: number; rate: number; minPayment: number; dueDay?: number };
 export type AssetType = 'imovel' | 'veiculo' | 'investimentos' | 'conta' | 'outros';
 export type Asset = { id: string; name: string; type: AssetType; value: number; liquid: boolean };
 export type GoalType = 'viagem' | 'compra' | 'aposentadoria' | 'reserva' | 'outro';
 export type Priority = 'alta' | 'media' | 'baixa';
 export type Retire = { monthlyIncome: number; age: number; retireAge: number; rate: number };
 export type Goal = { id: string; name: string; type: GoalType; target: number; date: string; saved: number; priority: Priority; retire?: Retire };
-export type Data = { incomes: Income[]; expenses: Expense[]; debts: Debt[]; reserve: number; assets: Asset[]; goals: Goal[]; isExample?: boolean };
+/** Foto de um mês fechado (histórico). */
+export type Snapshot = {
+  month: string; closedAt: number; income: number; expenses: number; minPayments: number; balance: number;
+  planned: Partial<Record<Category, number>>; spent: Partial<Record<Category, number>>;
+  totalDebt: number; debts: { name: string; balance: number }[]; totalAssets: number; netWorth: number;
+  reserve: number; reserveMonths: number; score: number; level: string;
+  goals: { name: string; saved: number; target: number; progress: number }[];
+};
+export type Data = {
+  incomes: Income[]; expenses: Expense[]; debts: Debt[]; reserve: number; assets: Asset[]; goals: Goal[]; isExample?: boolean;
+  /** mês corrente (YYYY-MM) a que os dados atuais se referem */
+  month: string;
+  /** gasto real lançado no mês corrente, por categoria (opcional) */
+  actuals: Partial<Record<Category, number>>;
+  history: Snapshot[];
+  dismissedAlerts: string[];
+};
 export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'outros';
 
 export const CATEGORIES: Record<Category, { label: string; group: 'necessidade' | 'desejo' }> = {
@@ -39,7 +55,8 @@ export const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency',
 export const pct = (n: number) => `${(n * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [] });
+export const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [], month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [] });
 // Migra dados antigos (sem assets/goals) sem quebrar
 export function migrate(raw: unknown): Data {
   const d = (raw && typeof raw === 'object' ? raw : {}) as Partial<Data>;
@@ -48,11 +65,15 @@ export function migrate(raw: unknown): Data {
     ...emptyData(), ...d,
     incomes: arr<Income>(d.incomes), expenses: arr<Expense>(d.expenses), debts: arr<Debt>(d.debts),
     assets: arr<Asset>(d.assets), goals: arr<Goal>(d.goals), reserve: Number(d.reserve) || 0,
+    month: typeof d.month === 'string' && /^\d{4}-\d{2}$/.test(d.month) ? d.month : thisMonth(),
+    actuals: d.actuals && typeof d.actuals === 'object' ? d.actuals : {},
+    history: arr<Snapshot>(d.history).filter(h => h && typeof h.month === 'string'),
+    dismissedAlerts: arr<string>(d.dismissedAlerts),
   };
 }
 const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMonth() + monthsAhead); return t.toISOString().slice(0, 7); };
 export const exampleData = (): Data => ({
-  isExample: true,
+  isExample: true, month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [],
   reserve: 800,
   incomes: [{ id: uid(), name: 'Salário', amount: 4200 }, { id: uid(), name: 'Freela', amount: 1500 }],
   expenses: [

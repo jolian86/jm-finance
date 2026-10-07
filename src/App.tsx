@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
-import { AnimatedNumber, ScoreGauge, ProgressRing, BrandLockup, Splash, Icon, STATUS } from './ui';
+import Evolucao from './Evolucao';
+import { Bell, AlertsPanel, Modal } from './AlertsCenter';
+import { computeAlerts, notifyNew, saveReminders, AlertTab } from './alerts';
+import { closeMonth, needsClosing, fullExample, ymLong, ymTitle, ymShort, deltas, plannedByCategory } from './history';
+import { AnimatedNumber, ScoreGauge, ProgressRing, BrandLockup, Splash, Icon } from './ui';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, LineChart, Line, Legend, CartesianGrid } from 'recharts';
-import { Data, Category, DebtType, AssetType, GoalType, Priority, Goal, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, PRIORITIES, DISCLAIMER, brl, pct, uid, emptyData, exampleData, diagnose, actionPlan, order, migrate, evaluateGoals } from './finance';
+import { Data, Category, DebtType, AssetType, GoalType, Priority, Goal, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, PRIORITIES, DISCLAIMER, brl, pct, uid, emptyData, thisMonth, diagnose, actionPlan, order, migrate, evaluateGoals } from './finance';
 
 type Tab = 'inicio' | 'dados' | 'diagnostico' | 'plano' | 'objetivos';
 const KEY = 'jmfinance:data';
 // Paleta derivada do logo (dourados) para gráficos; vermelho/verde/âmbar só para status
-// Paleta de gráficos: dourado como cor principal, alternado com pratas/grafites/bronze para contraste entre vizinhos
-const CH = { gold: '#f7b731', silver: '#c3c7cc', bronze: '#b8865b', steel: '#7f8b99', champagne: '#e8dcc4', graphite: '#5c6672', lightGold: '#fde68a', slate: '#94a3b8', taupe: '#a39382' };
-const COLORS = [CH.gold, CH.silver, CH.bronze, CH.steel, CH.champagne, CH.graphite, CH.taupe, CH.slate, CH.lightGold];
-const kfmt = (n: number) => Math.abs(n) >= 1000 ? `${(n / 1000).toLocaleString('pt-BR')} mil` : String(n);
-const legendFmt = (v: string) => <span style={{ color: '#e8dcc4', fontSize: 12 }}>{v}</span>;
-const LEVEL_COLOR = STATUS;
-const AX = { stroke: '#6b5d4a', tick: { fill: '#b8a88f', fontSize: 12 } };
-const AXY = { ...AX, tickFormatter: kfmt };
-const TT = { contentStyle: { background: '#15110c', border: '1px solid rgba(247,183,49,.35)', borderRadius: 10, color: '#f5ede0' }, itemStyle: { color: '#f5ede0' }, labelStyle: { color: '#f7b731' } };
+import { CH, COLORS, legendFmt, AX, AXY, TT, LEVEL_COLOR } from './chartTheme';
 const brl0 = (n: number) => brl(Math.round(n));
 
 function load(): Data { try { return migrate(JSON.parse(localStorage.getItem(KEY) || '')) } catch { return emptyData() } }
@@ -30,19 +26,33 @@ export default function App() {
   const hasData = data.incomes.length > 0;
   const [chat, setChat] = useState(() => new URLSearchParams(location.search).get('chat') === '1');
   const [splash, setSplash] = useState(() => !sessionStorage.getItem('jm:splash') && !new URLSearchParams(location.search).has('nosplash'));
-  const go = (t: Tab) => { setTab(t); window.scrollTo({ top: 0 }); };
+  const q0 = new URLSearchParams(location.search).get('tab');
+  const [diagView, setDiagView] = useState<'hoje' | 'evolucao'>(q0 === 'evolucao' ? 'evolucao' : 'hoje');
+  const go = (t: Tab | AlertTab) => { if (t === 'evolucao') { setDiagView('evolucao'); setTab('diagnostico'); } else { if (t === 'diagnostico') setDiagView('hoje'); setTab(t); } window.scrollTo({ top: 0 }); };
+  // alertas
+  const alerts = useMemo(() => computeAlerts(data), [data]);
+  const unread = alerts.filter(a => !data.dismissedAlerts.includes(a.id)).length;
+  const [alertsOpen, setAlertsOpen] = useState(() => new URLSearchParams(location.search).get('alertas') === '1');
+  useEffect(() => { const base = import.meta.env.BASE_URL; notifyNew(alerts.filter(a => !data.dismissedAlerts.includes(a.id)), base).catch(() => {}); saveReminders(alerts, data, base).catch(() => {}); }, [alerts]); // eslint-disable-line
+  // fechar mês
+  const [askClose, setAskClose] = useState(false);
+  const [newMonthPrompt, setNewMonthPrompt] = useState(() => needsClosing(load(), thisMonth()) && !sessionStorage.getItem('jm:nm'));
+  const doClose = () => { setData(d => closeMonth(d, thisMonth())); setAskClose(false); setNewMonthPrompt(false); sessionStorage.setItem('jm:nm', '1'); setAlertsOpen(false); go('evolucao'); };
   return (
     <MotionConfig reducedMotion="user">
     <AnimatePresence>{splash && <Splash onDone={() => { sessionStorage.setItem('jm:splash', '1'); setSplash(false); }} />}</AnimatePresence>
     <div className="app">
       <header><BrandLockup small />
-        {data.isExample && <span className="badge-ex">EXEMPLO</span>}</header>
+        <div className="head-right">{data.isExample && <span className="badge-ex">EXEMPLO</span>}<Bell count={unread} onClick={() => setAlertsOpen(true)} /></div></header>
       <main>
         <AnimatePresence mode="wait">
           <motion.div key={tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={setData} />}
-            {tab === 'dados' && <Inputs data={data} upd={upd} setData={setData} />}
-            {tab === 'diagnostico' && (hasData ? <Diagnosis data={data} /> : <Empty go={go} />)}
+            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={setData} onCloseMonth={() => setAskClose(true)} />}
+            {tab === 'dados' && <Inputs data={data} upd={upd} setData={setData} onCloseMonth={() => setAskClose(true)} />}
+            {tab === 'diagnostico' && (hasData ? <>
+              <div className="seg" role="tablist">{(['hoje', 'evolucao'] as const).map(v => <button key={v} role="tab" aria-selected={diagView === v} className={diagView === v ? 'on' : ''} onClick={() => setDiagView(v)}>
+                {diagView === v && <motion.span layoutId="segpill" className="segpill" />}<span>{v === 'hoje' ? 'Hoje' : 'Evolução'}</span></button>)}</div>
+              {diagView === 'hoje' ? <Diagnosis data={data} /> : <Evolucao data={data} onCloseMonth={() => setAskClose(true)} />}</> : <Empty go={go} />)}
             {tab === 'plano' && (hasData ? <Plan data={data} /> : <Empty go={go} />)}
             {tab === 'objetivos' && <Goals data={data} upd={upd} />}
           </motion.div>
@@ -51,6 +61,15 @@ export default function App() {
       {!chat && <motion.button className="fab" onClick={() => setChat(true)} aria-label="Consultor JM" whileTap={{ scale: 0.92 }} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: 'spring', stiffness: 260, damping: 18 }}>
         <Icon.chat /><span>Consultor</span></motion.button>}
       <AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={() => setChat(false)} goGoals={() => { setChat(false); go('objetivos'); }} />}</AnimatePresence>
+      <AnimatePresence>{alertsOpen && <AlertsPanel alerts={alerts} dismissed={data.dismissedAlerts}
+        onDismiss={id => upd({ dismissedAlerts: [...data.dismissedAlerts, id] })} onRestore={() => upd({ dismissedAlerts: [] })}
+        onGo={t => { setAlertsOpen(false); go(t); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{(askClose || newMonthPrompt) && <Modal title={newMonthPrompt && !askClose ? 'Começou um novo mês!' : `Fechar ${ymLong(data.month)}?`} confirm="Fechar mês"
+        onConfirm={doClose} onCancel={() => { setAskClose(false); setNewMonthPrompt(false); sessionStorage.setItem('jm:nm', '1'); }}>
+        {newMonthPrompt && !askClose && <p>Seus dados ainda estão em <b>{ymLong(data.month)}</b>. Quer fechar esse mês para guardar no histórico?</p>}
+        <p className="hint">Vamos guardar uma foto de {ymShort(data.month)}: renda, gastos por categoria, dívidas, patrimônio, reserva, nota e objetivos. Depois:</p>
+        <ul className="steps-mini"><li>o app passa para o mês seguinte;</li><li>os gastos reais lançados são zerados (o orçamento planejado continua);</li><li>atualize saldos de dívidas, reserva e bens quando mudarem.</li></ul>
+      </Modal>}</AnimatePresence>
       <nav>
         {([['inicio', Icon.home, 'Início'], ['dados', Icon.edit, 'Meus dados'], ['diagnostico', Icon.pulse, 'Diagnóstico'], ['plano', Icon.compass, 'Plano'], ['objetivos', Icon.target, 'Objetivos']] as const).map(([k, I, l]) =>
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)} aria-current={tab === k ? 'page' : undefined}>
@@ -66,8 +85,9 @@ function Empty({ go }: { go: (t: Tab) => void }) {
   return <div className="card center"><p>Cadastre pelo menos uma renda para ver esta tela.</p><button className="btn" onClick={() => go('dados')}>Cadastrar meus dados</button></div>;
 }
 
-function Home({ data, hasData, go, setData }: { data: Data; hasData: boolean; go: (t: Tab) => void; setData: (d: Data) => void }) {
+function Home({ data, hasData, go, setData, onCloseMonth }: { data: Data; hasData: boolean; go: (t: Tab | AlertTab) => void; setData: (d: Data) => void; onCloseMonth: () => void }) {
   const r = useMemo(() => diagnose(data), [data]);
+  const ds = useMemo(() => deltas(data).slice(0, 2), [data]);
   return <>
     <section className="hero">
       <BrandLockup />
@@ -83,6 +103,12 @@ function Home({ data, hasData, go, setData }: { data: Data; hasData: boolean; go
         <Stat label="Reserva" n={r.reserveMonths} f={months} />
       </div>
       <button className="btn full" onClick={() => go('plano')}>Ver meu plano de ação →</button>
+      <div className="card evo-mini">
+        <div className="evo-mini-head"><h3 style={{ margin: 0 }}>Sua evolução</h3><button className="link" onClick={() => go('evolucao')}>Ver gráficos →</button></div>
+        {ds.length ? ds.map((x, i) => <div key={i} className={`delta ${x.tone}`}><span>{x.tone === 'good' ? '▲' : x.tone === 'bad' ? '▼' : '•'}</span>{x.text}</div>)
+          : <p className="hint">Feche o mês de {ymShort(data.month)} para começar seu histórico e acompanhar a evolução.</p>}
+        {needsClosing(data, thisMonth()) && <button className="btn sm" onClick={onCloseMonth}>Fechar {ymShort(data.month)}</button>}
+        <Disc /></div>
     </> : <div className="card">
       <h3>Como funciona</h3>
       <ol className="steps-mini"><li>Cadastre renda, gastos e dívidas</li><li>Receba um diagnóstico com nota de saúde financeira</li><li>Siga o plano de ação ordenado</li></ol>
@@ -90,7 +116,7 @@ function Home({ data, hasData, go, setData }: { data: Data; hasData: boolean; go
     </div>}
     <div className="card ex">
       <p><b>Quer só conhecer?</b> Carregue um caso fictício para ver como o app funciona.</p>
-      <button className="btn ghost full" onClick={() => { if (!hasData || confirm('Isso substitui seus dados atuais. Continuar?')) { setData(exampleData()); go('diagnostico'); } }}>Carregar dados de EXEMPLO (fictícios)</button>
+      <button className="btn ghost full" onClick={() => { if (!hasData || confirm('Isso substitui seus dados atuais. Continuar?')) { setData(fullExample()); go('diagnostico'); } }}>Carregar dados de EXEMPLO (fictícios)</button>
     </div>
     <p className="disc">O JM Finance é uma ferramenta educativa e não substitui orientação de um profissional certificado. Seus dados ficam apenas neste aparelho.</p>
   </>;
@@ -113,9 +139,13 @@ function ScoreCard({ r }: { r: ReturnType<typeof diagnose> }) {
 
 function num(v: string) { return Number(v.replace(',', '.')) || 0; }
 
-function Inputs({ data, upd, setData }: { data: Data; upd: (p: Partial<Data>) => void; setData: (d: Data) => void }) {
+function Inputs({ data, upd, setData, onCloseMonth }: { data: Data; upd: (p: Partial<Data>) => void; setData: (d: Data) => void; onCloseMonth: () => void }) {
   const mark = (p: Partial<Data>) => upd({ ...p, isExample: false });
+  const planned = plannedByCategory(data);
+  const day = (v: string) => { const n = Math.round(num(v)); return n >= 1 && n <= 31 ? n : undefined; };
   return <>
+    <div className="card month-card"><div><small className="eyebrow">Mês atual</small><h3 style={{ margin: 0 }}>{ymTitle(data.month)}</h3></div>
+      <button className={`btn sm ${needsClosing(data, thisMonth()) ? '' : 'ghost'}`} onClick={onCloseMonth}>Fechar mês</button></div>
     {data.isExample && <div className="card ex">Você está vendo <b>dados de exemplo fictícios</b>. Edite ou <button className="link" onClick={() => setData(emptyData())}>limpe tudo</button> para usar os seus.</div>}
     <div className="card"><h3>Rendas mensais</h3>
       {data.incomes.map(i => <div className="row" key={i.id}>
@@ -132,9 +162,22 @@ function Inputs({ data, upd, setData }: { data: Data; upd: (p: Partial<Data>) =>
           {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
         <select value={i.kind} onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, kind: e.target.value as 'fixa' } : x) })}>
           <option value="fixa">Fixo</option><option value="variavel">Variável</option></select>
+        <input className="due" type="number" inputMode="numeric" min={1} max={31} placeholder="Vence dia" aria-label="Dia de vencimento (opcional)" value={i.dueDay ?? ''} onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, dueDay: day(e.target.value) } : x) })} />
         <button className="x" onClick={() => mark({ expenses: data.expenses.filter(x => x.id !== i.id) })}>✕</button></div>)}
       <button className="btn ghost" onClick={() => mark({ expenses: [...data.expenses, { id: uid(), name: 'Novo gasto', amount: 0, category: 'outros', kind: 'variavel' }] })}>+ Adicionar gasto</button>
     </div>
+    {Object.keys(planned).length > 0 && <div className="card"><h3>Gasto real deste mês <small className="opt">(opcional)</small></h3>
+      <p className="hint">Anote quanto já gastou em cada categoria para comparar com o planejado. Alertas: categorias variáveis ao chegar a 80%; qualquer categoria ao passar de 100%.</p>
+      {(Object.keys(planned) as Category[]).map(c => { const p = planned[c] || 0; const a = data.actuals[c]; const ratio = a ? a / (p || 1) : 0;
+        const variable = data.expenses.some(e => e.category === c && e.kind === 'variavel'); const cls = ratio > 1.005 ? 'over' : variable && ratio >= 0.8 && ratio < 1 ? 'near' : '';
+        return <div className="budget-row" key={c}>
+          <div className="budget-top"><span>{CATEGORIES[c].label}</span><small>planejado {brl(p)}</small>
+            <input type="number" inputMode="decimal" placeholder="Gasto real" aria-label={`Gasto real em ${CATEGORIES[c].label}`} value={a ?? ''}
+              onChange={e => { const v = e.target.value === '' ? undefined : num(e.target.value); const nx = { ...data.actuals }; if (v === undefined) delete nx[c]; else nx[c] = v; mark({ actuals: nx }); }} /></div>
+          <div className="bbar"><motion.div className={cls} initial={{ width: 0 }} animate={{ width: `${Math.min(100, ratio * 100)}%` }} transition={{ duration: 0.6 }} /></div>
+          {a !== undefined && <small className={`bpct ${cls}`}>{Math.round(ratio * 100)}% do planejado{!variable && Math.abs(ratio - 1) <= 0.005 ? ' · conta fixa paga' : ''}</small>}
+        </div>; })}
+    </div>}
     <div className="card"><h3>Dívidas</h3>
       <p className="hint">Juros ao mês (a.m.) aparecem na fatura/contrato. Rotativo do cartão costuma passar de 12% a.m.</p>
       {data.debts.map(i => <div className="debt" key={i.id}>
@@ -146,6 +189,7 @@ function Inputs({ data, upd, setData }: { data: Data; upd: (p: Partial<Data>) =>
           <label>Saldo devedor<input type="number" value={i.balance || ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, balance: num(e.target.value) } : x) })} /></label>
           <label>Juros % a.m.<input type="number" value={i.rate || ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, rate: num(e.target.value) } : x) })} /></label>
           <label>Parcela mínima<input type="number" value={i.minPayment || ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, minPayment: num(e.target.value) } : x) })} /></label>
+          <label>Vence dia (opcional)<input type="number" inputMode="numeric" min={1} max={31} placeholder="ex.: 10" value={i.dueDay ?? ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, dueDay: day(e.target.value) } : x) })} /></label>
         </div></div>)}
       <button className="btn ghost" onClick={() => mark({ debts: [...data.debts, { id: uid(), name: 'Nova dívida', type: 'outro', balance: 0, rate: 0, minPayment: 0 }] })}>+ Adicionar dívida</button>
     </div>
@@ -198,7 +242,7 @@ function Diagnosis({ data }: { data: Data }) {
       <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={pie} dataKey="value" nameKey="name" outerRadius={92} innerRadius={56} paddingAngle={2} stroke="#0d0b09" strokeWidth={2} animationDuration={1100} animationEasing="ease-out">
         {pie.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip {...TT} formatter={(v) => brl(Number(v))} /><Legend iconType="circle" iconSize={9} itemSorter={null} formatter={legendFmt} wrapperStyle={{ lineHeight: '20px', paddingTop: 6 }} /></PieChart></ResponsiveContainer><Disc /></div>
     <div className="card"><h3>Entradas x saídas</h3>
-      <ResponsiveContainer width="100%" height={220}><BarChart data={bars}><CartesianGrid vertical={false} stroke="rgba(247,183,49,.08)" /><XAxis dataKey="name" {...AX} /><YAxis width={50} {...AXY} /><Tooltip {...TT} cursor={{ fill: 'rgba(247,183,49,.06)' }} formatter={(v) => brl(Number(v))} />
+      <ResponsiveContainer width="100%" height={220}><BarChart data={bars}><CartesianGrid vertical={false} stroke="rgba(247,183,49,.08)" /><XAxis dataKey="name" {...AX} /><YAxis width={58} {...AXY} /><Tooltip {...TT} cursor={{ fill: 'rgba(247,183,49,.06)' }} formatter={(v) => brl(Number(v))} />
         <Bar dataKey="valor" radius={[8, 8, 0, 0]} animationDuration={1000}>{bars.map((b, i) => <Cell key={i} fill={b.valor < 0 ? '#ef4444' : ['url(#barGold)', 'url(#barSilver)', CH.bronze, '#22c55e'][i]} />)}</Bar>
         <defs><linearGradient id="barGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fdef89" /><stop offset="1" stopColor="#c17925" /></linearGradient>
           <linearGradient id="barSilver" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e5e7ea" /><stop offset="1" stopColor="#7f8b99" /></linearGradient></defs></BarChart></ResponsiveContainer><Disc /></div>
@@ -214,7 +258,7 @@ function Plan({ data }: { data: Data }) {
       {s.items && <ul>{s.items.map((x, j) => <li key={j}>{x}</li>)}</ul>}<Disc /></div></motion.div>)}
     {p.payoff && <div className="card"><h3>Projeção de quitação das dívidas</h3>
       <p className="hint">Saldo devedor total mês a mês, com {brl(p.payoff.budget)}/mês para dívidas.</p>
-      <ResponsiveContainer width="100%" height={240}><LineChart data={line}><CartesianGrid strokeDasharray="3 3" stroke="rgba(247,183,49,.08)" /><XAxis dataKey="mes" {...AX} /><YAxis width={55} {...AXY} />
+      <ResponsiveContainer width="100%" height={240}><LineChart data={line}><CartesianGrid strokeDasharray="3 3" stroke="rgba(247,183,49,.08)" /><XAxis dataKey="mes" {...AX} /><YAxis width={58} {...AXY} />
         <Tooltip {...TT} formatter={(v) => brl(Number(v))} labelFormatter={l => `Mês ${l}`} /><Legend formatter={legendFmt} wrapperStyle={{ paddingTop: 6 }} />
         <Line dataKey="Avalanche" stroke="#f7b731" dot={false} strokeWidth={2.5} animationDuration={1400} /><Line dataKey="Bola de neve" stroke={CH.silver} strokeDasharray="6 4" dot={false} strokeWidth={2.25} animationDuration={1400} /></LineChart></ResponsiveContainer>
       <table><thead><tr><th>Dívida (avalanche)</th><th>Juros</th><th>Quitada no mês</th></tr></thead><tbody>
