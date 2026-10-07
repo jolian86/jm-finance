@@ -1,0 +1,24 @@
+import { chromium } from 'playwright';
+const U = process.argv[2] || 'http://localhost:4173/jm-finance/';
+const OUT = process.argv[3] || 'screenshots/v3';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'pt-BR', isMobile: true, hasTouch: true });
+const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && errs.push(m.text()));
+await p.goto(U + '?nosplash'); await p.evaluate(() => localStorage.clear()); await p.reload();
+await p.click('text=Carregar dados de EXEMPLO'); await p.waitForTimeout(800);
+await p.addStyleTag({ content: '.fab{display:none!important}' });
+const at = async (title, file) => {
+  const card = p.locator('.card', { has: p.locator(`h3:text-is("${title}")`) });
+  await card.scrollIntoViewIfNeeded(); await p.waitForTimeout(1800);
+  await card.screenshot({ path: `${OUT}/${file}.png` });
+};
+await p.click('nav >> text=Diagnóstico');
+await at('Para onde vai seu dinheiro', '01-diagnostico-donut');
+await at('Entradas x saídas', '02-diagnostico-barras');
+await p.evaluate(() => { const h = [...document.querySelectorAll('h3')].find(x => x.textContent === 'Para onde vai seu dinheiro'); scrollTo(0, h.getBoundingClientRect().top + scrollY - 70); });
+await p.waitForTimeout(600); await p.screenshot({ path: `${OUT}/03-diagnostico-graficos-tela.png` });
+await p.click('nav >> text=Plano'); await p.waitForTimeout(600);
+await at('Projeção de quitação das dívidas', '04-plano-quitacao');
+await p.evaluate(() => { const h = [...document.querySelectorAll('h3')].find(x => x.textContent.startsWith('Projeção')); scrollTo(0, h.getBoundingClientRect().top + scrollY - 70); });
+await p.waitForTimeout(600); await p.screenshot({ path: `${OUT}/05-plano-quitacao-tela.png` });
+console.log('errors', errs); await b.close();

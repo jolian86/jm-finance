@@ -8,9 +8,14 @@ import { Data, Category, DebtType, AssetType, GoalType, Priority, Goal, CATEGORI
 type Tab = 'inicio' | 'dados' | 'diagnostico' | 'plano' | 'objetivos';
 const KEY = 'jmfinance:data';
 // Paleta derivada do logo (dourados) para gráficos; vermelho/verde/âmbar só para status
-const COLORS = ['#f7b731', '#c17925', '#fdef89', '#a15408', '#e9d8b4', '#8a6a3d', '#d99a2b', '#6e3607', '#b8a88f'];
+// Paleta de gráficos: dourado como cor principal, alternado com pratas/grafites/bronze para contraste entre vizinhos
+const CH = { gold: '#f7b731', silver: '#c3c7cc', bronze: '#b8865b', steel: '#7f8b99', champagne: '#e8dcc4', graphite: '#5c6672', lightGold: '#fde68a', slate: '#94a3b8', taupe: '#a39382' };
+const COLORS = [CH.gold, CH.silver, CH.bronze, CH.steel, CH.champagne, CH.graphite, CH.taupe, CH.slate, CH.lightGold];
+const kfmt = (n: number) => Math.abs(n) >= 1000 ? `${(n / 1000).toLocaleString('pt-BR')} mil` : String(n);
+const legendFmt = (v: string) => <span style={{ color: '#e8dcc4', fontSize: 12 }}>{v}</span>;
 const LEVEL_COLOR = STATUS;
 const AX = { stroke: '#6b5d4a', tick: { fill: '#b8a88f', fontSize: 12 } };
+const AXY = { ...AX, tickFormatter: kfmt };
 const TT = { contentStyle: { background: '#15110c', border: '1px solid rgba(247,183,49,.35)', borderRadius: 10, color: '#f5ede0' }, itemStyle: { color: '#f5ede0' }, labelStyle: { color: '#f7b731' } };
 const brl0 = (n: number) => brl(Math.round(n));
 
@@ -169,7 +174,7 @@ function Diagnosis({ data }: { data: Data }) {
   const byCat: Record<string, number> = {};
   data.expenses.forEach(e => byCat[CATEGORIES[e.category].label] = (byCat[CATEGORIES[e.category].label] || 0) + e.amount);
   if (r.minPayments) byCat['Parcelas de dívidas'] = r.minPayments;
-  const pie = Object.entries(byCat).map(([name, value]) => ({ name, value }));
+  const pie = Object.entries(byCat).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   const bars = [{ name: 'Renda', valor: r.income }, { name: 'Gastos', valor: r.expenses }, { name: 'Dívidas', valor: r.minPayments }, { name: 'Saldo', valor: r.balance }];
   return <>
     <ScoreCard r={r} />
@@ -191,11 +196,12 @@ function Diagnosis({ data }: { data: Data }) {
       {r.findings.map((f, i) => <div key={i} className={`finding ${f.tone}`}><b>{f.title}</b><p>{f.text}</p></div>)}<Disc /></div>
     <div className="card"><h3>Para onde vai seu dinheiro</h3>
       <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={pie} dataKey="value" nameKey="name" outerRadius={92} innerRadius={56} paddingAngle={2} stroke="#0d0b09" strokeWidth={2} animationDuration={1100} animationEasing="ease-out">
-        {pie.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip {...TT} formatter={(v) => brl(Number(v))} /><Legend wrapperStyle={{ color: '#d8cbb5', fontSize: 12 }} /></PieChart></ResponsiveContainer><Disc /></div>
+        {pie.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip {...TT} formatter={(v) => brl(Number(v))} /><Legend iconType="circle" iconSize={9} itemSorter={null} formatter={legendFmt} wrapperStyle={{ lineHeight: '20px', paddingTop: 6 }} /></PieChart></ResponsiveContainer><Disc /></div>
     <div className="card"><h3>Entradas x saídas</h3>
-      <ResponsiveContainer width="100%" height={220}><BarChart data={bars}><CartesianGrid vertical={false} stroke="rgba(247,183,49,.08)" /><XAxis dataKey="name" {...AX} /><YAxis width={50} {...AX} /><Tooltip {...TT} cursor={{ fill: 'rgba(247,183,49,.06)' }} formatter={(v) => brl(Number(v))} />
-        <Bar dataKey="valor" radius={[8, 8, 0, 0]} animationDuration={1000}>{bars.map((b, i) => <Cell key={i} fill={b.valor < 0 ? '#ef4444' : ['url(#barGold)', '#c17925', '#8a6a3d', '#22c55e'][i]} />)}</Bar>
-        <defs><linearGradient id="barGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fdef89" /><stop offset="1" stopColor="#c17925" /></linearGradient></defs></BarChart></ResponsiveContainer><Disc /></div>
+      <ResponsiveContainer width="100%" height={220}><BarChart data={bars}><CartesianGrid vertical={false} stroke="rgba(247,183,49,.08)" /><XAxis dataKey="name" {...AX} /><YAxis width={50} {...AXY} /><Tooltip {...TT} cursor={{ fill: 'rgba(247,183,49,.06)' }} formatter={(v) => brl(Number(v))} />
+        <Bar dataKey="valor" radius={[8, 8, 0, 0]} animationDuration={1000}>{bars.map((b, i) => <Cell key={i} fill={b.valor < 0 ? '#ef4444' : ['url(#barGold)', 'url(#barSilver)', CH.bronze, '#22c55e'][i]} />)}</Bar>
+        <defs><linearGradient id="barGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fdef89" /><stop offset="1" stopColor="#c17925" /></linearGradient>
+          <linearGradient id="barSilver" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e5e7ea" /><stop offset="1" stopColor="#7f8b99" /></linearGradient></defs></BarChart></ResponsiveContainer><Disc /></div>
   </>;
 }
 
@@ -208,9 +214,9 @@ function Plan({ data }: { data: Data }) {
       {s.items && <ul>{s.items.map((x, j) => <li key={j}>{x}</li>)}</ul>}<Disc /></div></motion.div>)}
     {p.payoff && <div className="card"><h3>Projeção de quitação das dívidas</h3>
       <p className="hint">Saldo devedor total mês a mês, com {brl(p.payoff.budget)}/mês para dívidas.</p>
-      <ResponsiveContainer width="100%" height={240}><LineChart data={line}><CartesianGrid strokeDasharray="3 3" stroke="rgba(247,183,49,.08)" /><XAxis dataKey="mes" {...AX} /><YAxis width={55} {...AX} />
-        <Tooltip {...TT} formatter={(v) => brl(Number(v))} labelFormatter={l => `Mês ${l}`} /><Legend wrapperStyle={{ color: '#d8cbb5', fontSize: 12 }} />
-        <Line dataKey="Avalanche" stroke="#f7b731" dot={false} strokeWidth={2.5} animationDuration={1400} /><Line dataKey="Bola de neve" stroke="#b8a88f" strokeDasharray="5 4" dot={false} strokeWidth={2} animationDuration={1400} /></LineChart></ResponsiveContainer>
+      <ResponsiveContainer width="100%" height={240}><LineChart data={line}><CartesianGrid strokeDasharray="3 3" stroke="rgba(247,183,49,.08)" /><XAxis dataKey="mes" {...AX} /><YAxis width={55} {...AXY} />
+        <Tooltip {...TT} formatter={(v) => brl(Number(v))} labelFormatter={l => `Mês ${l}`} /><Legend formatter={legendFmt} wrapperStyle={{ paddingTop: 6 }} />
+        <Line dataKey="Avalanche" stroke="#f7b731" dot={false} strokeWidth={2.5} animationDuration={1400} /><Line dataKey="Bola de neve" stroke={CH.silver} strokeDasharray="6 4" dot={false} strokeWidth={2.25} animationDuration={1400} /></LineChart></ResponsiveContainer>
       <table><thead><tr><th>Dívida (avalanche)</th><th>Juros</th><th>Quitada no mês</th></tr></thead><tbody>
         {order(data.debts, 'avalanche').map(d => <tr key={d.id}><td>{d.name}</td><td>{d.rate}%</td><td>{p.payoff!.av.payoff[d.id] ?? '—'}</td></tr>)}</tbody></table><Disc />
     </div>}
