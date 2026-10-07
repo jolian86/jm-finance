@@ -16,4 +16,12 @@ await p.click('nav >> text=Diagnóstico'); await p.waitForTimeout(1200); await p
 await p.click('nav >> text=Objetivos'); await p.waitForTimeout(800); await p.screenshot({ path: 'screenshots/08-objetivos.png', fullPage: true });
 await p.click('nav >> text=Plano'); await p.waitForTimeout(1200); await p.screenshot({ path: 'screenshots/05-plano-de-acao.png', fullPage: true });
 console.log('disclaimers no plano:', await p.locator('.jm-disc').count());
+await p.click('.fab'); await p.waitForTimeout(300);
+for (const q of ['Qual dívida pagar primeiro?', 'Posso financiar um carro de R$ 40 mil?']) { await p.click(`.chips >> text=${q}`); await p.waitForSelector('.typing'); await p.waitForSelector('.typing', { state: 'detached' }); }
+console.log('respostas do bot:', await p.locator('.msg.bot').count(), '| badge:', await p.isVisible('text=MODO SIMULAÇÃO'));
+await p.locator('.msg.me').last().scrollIntoViewIfNeeded(); await p.waitForTimeout(500);
+await p.screenshot({ path: 'screenshots/09-consultor-jm.png' });
+await p.reload(); await p.click('.fab'); console.log('histórico persistido:', await p.locator('.msg.me').count());
+await p.click('.chips >> text=Como sair do vermelho?'); await p.waitForSelector('.typing'); await p.waitForTimeout(450); await p.screenshot({ path: 'screenshots/10-consultor-digitando.png' });
+await p.waitForSelector('.typing', { state: 'detached' });
 console.log('errors', errs); await b.close();

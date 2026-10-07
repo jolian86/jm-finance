@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import Chat from './Chat';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, LineChart, Line, Legend, CartesianGrid } from 'recharts';
 import { Data, Category, DebtType, AssetType, GoalType, Priority, Goal, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, PRIORITIES, DISCLAIMER, brl, pct, uid, emptyData, exampleData, diagnose, actionPlan, order, migrate, evaluateGoals } from './finance';
 
@@ -16,6 +17,7 @@ export default function App() {
   useEffect(() => localStorage.setItem(KEY, JSON.stringify(data)), [data]);
   const upd = (p: Partial<Data>) => setData(d => ({ ...d, ...p, isExample: p.isExample ?? d.isExample }));
   const hasData = data.incomes.length > 0;
+  const [chat, setChat] = useState(() => new URLSearchParams(location.search).get('chat') === '1');
   return (
     <div className="app">
       <header><div className="logo">JM<span>Finance</span></div>
@@ -27,6 +29,8 @@ export default function App() {
         {tab === 'plano' && (hasData ? <Plan data={data} /> : <Empty go={setTab} />)}
         {tab === 'objetivos' && <Goals data={data} upd={upd} />}
       </main>
+      {!chat && <button className="fab" onClick={() => setChat(true)} aria-label="Consultor JM">💬<span>Consultor</span></button>}
+      {chat && <Chat data={data} onClose={() => setChat(false)} />}
       <nav>
         {([['inicio', '🏠', 'Início'], ['dados', '✏️', 'Meus dados'], ['diagnostico', '🩺', 'Diagnóstico'], ['plano', '🧭', 'Plano'], ['objetivos', '🎯', 'Objetivos']] as const).map(([k, i, l]) =>
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><span>{i}</span>{l}</button>)}
