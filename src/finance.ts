@@ -2,7 +2,13 @@ export type Income = { id: string; name: string; amount: number };
 export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel' };
 export type DebtType = 'cartao_rotativo' | 'cheque_especial' | 'emprestimo_pessoal' | 'consignado' | 'financiamento' | 'outro';
 export type Debt = { id: string; name: string; type: DebtType; balance: number; rate: number; minPayment: number };
-export type Data = { incomes: Income[]; expenses: Expense[]; debts: Debt[]; reserve: number; isExample?: boolean };
+export type AssetType = 'imovel' | 'veiculo' | 'investimentos' | 'conta' | 'outros';
+export type Asset = { id: string; name: string; type: AssetType; value: number; liquid: boolean };
+export type GoalType = 'viagem' | 'compra' | 'aposentadoria' | 'reserva' | 'outro';
+export type Priority = 'alta' | 'media' | 'baixa';
+export type Retire = { monthlyIncome: number; age: number; retireAge: number; rate: number };
+export type Goal = { id: string; name: string; type: GoalType; target: number; date: string; saved: number; priority: Priority; retire?: Retire };
+export type Data = { incomes: Income[]; expenses: Expense[]; debts: Debt[]; reserve: number; assets: Asset[]; goals: Goal[]; isExample?: boolean };
 export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'outros';
 
 export const CATEGORIES: Record<Category, { label: string; group: 'necessidade' | 'desejo' }> = {
@@ -21,11 +27,30 @@ export const DEBT_TYPES: Record<DebtType, string> = {
   consignado: 'Consignado', financiamento: 'Financiamento', outro: 'Outro',
 };
 
+export const ASSET_TYPES: Record<AssetType, { label: string; liquid: boolean }> = {
+  imovel: { label: 'Imóvel', liquid: false }, veiculo: { label: 'Veículo', liquid: false },
+  investimentos: { label: 'Investimentos', liquid: true }, conta: { label: 'Saldo em conta/poupança', liquid: true }, outros: { label: 'Outros', liquid: false },
+};
+export const GOAL_TYPES: Record<GoalType, string> = { viagem: 'Viagem', compra: 'Compra', aposentadoria: 'Aposentadoria', reserva: 'Reserva', outro: 'Outro' };
+export const PRIORITIES: Record<Priority, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+export const DISCLAIMER = 'A JM Finance não decide por você. Nós auxiliamos na sua gestão financeira!';
+
 export const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 export const pct = (n: number) => `${(n * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0 });
+export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [] });
+// Migra dados antigos (sem assets/goals) sem quebrar
+export function migrate(raw: unknown): Data {
+  const d = (raw && typeof raw === 'object' ? raw : {}) as Partial<Data>;
+  const arr = <T,>(v: unknown) => (Array.isArray(v) ? v as T[] : []);
+  return {
+    ...emptyData(), ...d,
+    incomes: arr<Income>(d.incomes), expenses: arr<Expense>(d.expenses), debts: arr<Debt>(d.debts),
+    assets: arr<Asset>(d.assets), goals: arr<Goal>(d.goals), reserve: Number(d.reserve) || 0,
+  };
+}
+const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMonth() + monthsAhead); return t.toISOString().slice(0, 7); };
 export const exampleData = (): Data => ({
   isExample: true,
   reserve: 800,
@@ -45,6 +70,16 @@ export const exampleData = (): Data => ({
     { id: uid(), name: 'Cheque especial', type: 'cheque_especial', balance: 1200, rate: 8, minPayment: 150 },
     { id: uid(), name: 'Empréstimo pessoal', type: 'emprestimo_pessoal', balance: 6000, rate: 4.5, minPayment: 420 },
   ],
+  assets: [
+    { id: uid(), name: 'Carro (Gol 2015)', type: 'veiculo', value: 32000, liquid: false },
+    { id: uid(), name: 'Poupança', type: 'conta', value: 1500, liquid: true },
+    { id: uid(), name: 'Moto parada na garagem', type: 'veiculo', value: 6000, liquid: false },
+  ],
+  goals: [
+    { id: uid(), name: 'Viagem para o Nordeste', type: 'viagem', target: 6000, date: ym(12), saved: 300, priority: 'media' },
+    { id: uid(), name: 'Notebook novo', type: 'compra', target: 4000, date: ym(6), saved: 0, priority: 'baixa' },
+    { id: uid(), name: 'Aposentadoria', type: 'aposentadoria', target: 0, date: '', saved: 0, priority: 'alta', retire: { monthlyIncome: 4000, age: 32, retireAge: 65, rate: 0.5 } },
+  ],
 });
 
 const sum = (a: { amount: number }[]) => a.reduce((s, x) => s + (Number(x.amount) || 0), 0);
@@ -63,7 +98,12 @@ export function diagnose(d: Data) {
   const dti = income ? minPayments / income : 0;
   const essentials = d.expenses.filter(e => CATEGORIES[e.category].group === 'necessidade').reduce((s, e) => s + e.amount, 0);
   const wants = expenses - essentials;
-  const reserveMonths = essentials + minPayments > 0 ? d.reserve / (essentials + minPayments) : 0;
+  const assets = d.assets || [];
+  const totalAssets = assets.reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const liquidAssets = assets.filter(a => a.liquid).reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const netWorth = totalAssets + d.reserve - d.debts.reduce((s, x) => s + x.balance, 0);
+  const effReserve = d.reserve + liquidAssets; // ativos líquidos contam como reserva
+  const reserveMonths = essentials + minPayments > 0 ? effReserve / (essentials + minPayments) : 0;
   const expensive = d.debts.filter(x => x.type === 'cartao_rotativo' || x.type === 'cheque_especial' || x.rate >= 5);
   const monthlyInterest = d.debts.reduce((s, x) => s + x.balance * x.rate / 100, 0);
 
@@ -74,6 +114,7 @@ export function diagnose(d: Data) {
   score -= Math.min(20, expensive.length * 10);
   if (reserveMonths < 1) score -= 15; else if (reserveMonths < 3) score -= 8; else if (reserveMonths < 6) score -= 3;
   if (income && totalDebt / income > 6) score -= 10;
+  if (netWorth < 0) score -= 5;
   score = Math.max(0, Math.round(score));
   const level: Level = score < 40 ? 'crítico' : score < 60 ? 'atenção' : score < 80 ? 'estável' : 'saudável';
   const levelText: Record<Level, string> = {
@@ -96,12 +137,15 @@ export function diagnose(d: Data) {
   }
   if (monthlyInterest > 0) f.push({ tone: monthlyInterest > income * 0.05 ? 'bad' : 'warn', title: `Você paga cerca de ${brl(monthlyInterest)} de juros por mês`, text: 'Esse dinheiro não abate nada da dívida — é o "custo" de dever. Quanto antes quitar as dívidas caras, mais sobra.' });
   expensive.forEach(x => f.push({ tone: 'bad', title: `Dívida cara: ${x.name} (${x.rate}% a.m.)`, text: `${x.rate}% ao mês equivale a ~${pct(Math.pow(1 + x.rate / 100, 12) - 1)} ao ano. ${x.type === 'cartao_rotativo' ? 'O rotativo do cartão é a dívida mais cara do Brasil.' : x.type === 'cheque_especial' ? 'Cheque especial nunca deve ser usado como renda extra.' : ''} Troque por uma dívida mais barata ou quite primeiro.` }));
+  if (totalAssets > 0) f.push(netWorth < 0
+    ? { tone: 'bad', title: `Patrimônio líquido negativo: ${brl(netWorth)}`, text: 'Você deve mais do que tem. Prioridade é reduzir dívidas antes de comprar novos bens.' }
+    : { tone: 'good', title: `Patrimônio líquido: ${brl(netWorth)}`, text: `É o que sobraria se você vendesse tudo e quitasse as dívidas. Desse total, ${brl(liquidAssets + d.reserve)} está disponível rápido (líquido).` });
   f.push(reserveMonths < 1
-    ? { tone: 'bad', title: `Reserva cobre ${reserveMonths.toFixed(1)} mês`, text: 'Sem reserva, qualquer imprevisto vira dívida cara. Meta inicial: 1 mês de custos essenciais.' }
-    : reserveMonths < 6 ? { tone: 'warn', title: `Reserva cobre ${reserveMonths.toFixed(1)} meses`, text: 'Bom começo. A meta é de 3 a 6 meses de custos essenciais.' }
+    ? { tone: 'bad', title: `Reserva cobre ${reserveMonths.toFixed(1)} mês`, text: (liquidAssets ? `Considerando reserva + ativos líquidos (${brl(effReserve)}). ` : '') + 'Sem reserva, qualquer imprevisto vira dívida cara. Meta inicial: 1 mês de custos essenciais.' }
+    : reserveMonths < 6 ? { tone: 'warn', title: `Reserva cobre ${reserveMonths.toFixed(1)} meses`, text: (liquidAssets ? `Considerando reserva + ativos líquidos (${brl(effReserve)}). ` : '') + 'Bom começo. A meta é de 3 a 6 meses de custos essenciais.' }
     : { tone: 'good', title: `Reserva cobre ${reserveMonths.toFixed(1)} meses`, text: 'Reserva de emergência completa.' });
 
-  return { reserve: d.reserve, income, expenses, minPayments, totalDebt, outflow, balance, commitment, dti, essentials, wants, reserveMonths, expensive, monthlyInterest, score, level, levelText: levelText[level], findings: f };
+  return { reserve: d.reserve, effReserve, totalAssets, liquidAssets, netWorth, income, expenses, minPayments, totalDebt, outflow, balance, commitment, dti, essentials, wants, reserveMonths, expensive, monthlyInterest, score, level, levelText: levelText[level], findings: f };
 }
 
 export type Strategy = 'avalanche' | 'snowball';
@@ -172,7 +216,17 @@ export function actionPlan(d: Data) {
     ]});
   const surplus = Math.max(0, r.balance + savings);
   const reserveTarget1 = r.essentials + r.minPayments;
-  if (r.reserve < reserveTarget1 * 0.5 && d.debts.length) steps.push({
+  if (r.expensive.length && r.totalAssets > 0) {
+    const expDebt = r.expensive.reduce((s, x) => s + x.balance, 0);
+    const spareLiquid = Math.max(0, r.liquidAssets + r.reserve - Math.min(1000, reserveTarget1 * 0.5));
+    const idle = (d.assets || []).filter(a => !a.liquid && a.type !== 'imovel');
+    const items: string[] = [];
+    if (spareLiquid > 0) items.push(`Você tem ${brl(spareLiquid)} em ativos líquidos além de uma mini-reserva. Usar parte disso para quitar ${order(r.expensive, 'avalanche')[0].name} (${order(r.expensive, 'avalanche')[0].rate}% a.m.) costuma render mais do que qualquer investimento.`);
+    if (idle.length) items.push(`Bens que talvez estejam parados: ${idle.map(a => `${a.name} (~${brl(a.value)})`).join(', ')}. Vender algum deles ou trocar por um mais barato quitaria parte das dívidas caras (${brl(expDebt)}).`);
+    items.push('Isso é uma opção, não uma obrigação: avalie se o bem é essencial (ex.: carro para trabalhar) antes de decidir.');
+    if (spareLiquid > 0 || idle.length) steps.push({ title: 'Opção: use patrimônio para matar dívidas caras', text: 'Juros de dívida cara são maiores que o rendimento de quase qualquer bem ou aplicação.', items });
+  }
+  if (r.effReserve < reserveTarget1 * 0.5 && d.debts.length) steps.push({
     title: 'Monte uma mini-reserva', text: `Separe ${brl(Math.min(1000, reserveTarget1 * 0.5))} para imprevistos antes de acelerar as dívidas — assim um pneu furado não vira novo rotativo. Guarde em conta que renda 100% do CDI com liquidez diária.` });
   let payoff = null as null | { budget: number; av: ReturnType<typeof simulate>; sb: ReturnType<typeof simulate> };
   if (d.debts.length) {
@@ -189,7 +243,61 @@ export function actionPlan(d: Data) {
       ]});
   }
   if (r.reserveMonths < 6) steps.push({
-    title: 'Construa a reserva de emergência', text: `Meta: 6 meses de custos essenciais = ${brl(reserveTarget1 * 6)}. Hoje: ${brl(r.reserve)}. ${surplus > 0 ? `Após quitar as dívidas, guardando ${brl(surplus + r.minPayments)}/mês você chega lá em ~${Math.ceil(Math.max(0, reserveTarget1 * 6 - r.reserve) / (surplus + r.minPayments))} meses.` : 'Primeiro crie folga no orçamento.'}` });
+    title: 'Construa a reserva de emergência', text: `Meta: 6 meses de custos essenciais = ${brl(reserveTarget1 * 6)}. Hoje: ${brl(r.effReserve)}${r.liquidAssets ? ' (reserva + ativos líquidos)' : ''}. ${surplus > 0 ? `Após quitar as dívidas, guardando ${brl(surplus + r.minPayments)}/mês você chega lá em ~${Math.ceil(Math.max(0, reserveTarget1 * 6 - r.effReserve) / (surplus + r.minPayments))} meses.` : 'Primeiro crie folga no orçamento.'}` });
   steps.push({ title: 'Próximo nível', text: 'Com dívidas quitadas e reserva pronta: invista para objetivos (Tesouro Direto, CDBs), revise o orçamento a cada 3 meses e busque aumentar a renda.' });
-  return { steps, cuts, savings, guide, payoff, surplus };
+  // Orçamento livre para objetivos: com dívidas, 80% da sobra vai para elas
+  const freeForGoals = d.debts.length ? surplus * 0.2 : surplus;
+  return { steps, cuts, savings, guide, payoff, surplus, freeForGoals };
+}
+
+// ---------- Objetivos ----------
+export function monthsUntil(date: string) {
+  if (!date) return 0;
+  const [y, m] = date.split('-').map(Number); const t = new Date();
+  return Math.max(1, (y - t.getFullYear()) * 12 + (m - 1 - t.getMonth()));
+}
+export function retirementCalc(r: Retire, saved: number) {
+  const i = (r.rate || 0.5) / 100;
+  const n = Math.max(1, (r.retireAge - r.age) * 12);
+  const capital = r.monthlyIncome / i; // viver de renda (perpetuidade real)
+  const fv = saved * Math.pow(1 + i, n);
+  const monthly = Math.max(0, (capital - fv) * i / (Math.pow(1 + i, n) - 1));
+  return { capital, monthly, months: n };
+}
+export type GoalResult = { goal: Goal; target: number; months: number; need: number; allocated: number; allocatedAfter: number; fits: boolean; progress: number;
+  alt?: { extendTo: string; extendMonths: number; reduceTo: number; cut: number } };
+const PR: Record<Priority, number> = { alta: 0, media: 1, baixa: 2 };
+export function evaluateGoals(d: Data) {
+  const plan = actionPlan(d); const r = diagnose(d);
+  const payoffMonths = plan.payoff ? (plan.payoff.av.feasible ? plan.payoff.av.months : null) : 0;
+  // depois de quitar as dívidas, o dinheiro das parcelas fica livre
+  const freeAfter = d.debts.length ? plan.surplus + r.minPayments : plan.freeForGoals;
+  let avail = plan.freeForGoals, availAfter = freeAfter;
+  const results: GoalResult[] = [];
+  const sorted = [...(d.goals || [])].sort((a, b) => PR[a.priority] - PR[b.priority]);
+  for (const g of sorted) {
+    let target = g.target, months = monthsUntil(g.date), need: number;
+    if (g.type === 'aposentadoria' && g.retire) {
+      const rc = retirementCalc(g.retire, g.saved); target = rc.capital; months = rc.months; need = rc.monthly;
+    } else need = Math.max(0, target - g.saved) / Math.max(1, months);
+    const allocated = Math.min(need, Math.max(0, avail)); avail -= allocated;
+    const allocatedAfter = Math.min(Math.max(need, allocated), Math.max(0, availAfter)); availAfter -= allocatedAfter;
+    const fits = need <= allocated + 0.5;
+    const progress = target ? Math.min(1, g.saved / target) : 0;
+    let alt: GoalResult['alt'];
+    if (!fits) {
+      const remaining = Math.max(0, target - g.saved);
+      // meses até completar: "allocated" durante as dívidas, "allocatedAfter" depois
+      let extendMonths = 0;
+      if (payoffMonths !== null) {
+        const during = allocated * payoffMonths;
+        if (during >= remaining) extendMonths = allocated > 0 ? Math.ceil(remaining / allocated) : 0;
+        else if (allocatedAfter > 1) extendMonths = payoffMonths + Math.ceil((remaining - during) / allocatedAfter);
+      }
+      if (extendMonths > 600) extendMonths = 0;
+      alt = { extendMonths, extendTo: extendMonths ? ym(extendMonths) : '', reduceTo: g.type === 'aposentadoria' && g.retire ? Math.max(0, allocated / need * g.retire.monthlyIncome) : g.saved + allocated * months, cut: need - allocated };
+    }
+    results.push({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt });
+  }
+  return { results, free: plan.freeForGoals, freeAfter, payoffMonths, hasExpensive: r.expensive.length > 0, hasDebts: d.debts.length > 0, surplus: plan.surplus };
 }
