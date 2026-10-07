@@ -12,6 +12,6 @@ export const remoteProvider: ChatProvider = {
     });
     if (!res.ok) throw new Error(`Erro ${res.status}`);
     const j = await res.json();
-    return String(j.reply ?? '');
+    return { content: String(j.reply ?? ''), actions: Array.isArray(j.actions) ? j.actions : undefined };
   },
 };

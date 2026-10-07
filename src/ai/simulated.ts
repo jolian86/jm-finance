@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatProvider, FinancialSummary as S } from './types';
+import type { ChatAction, ChatMessage, ChatProvider, ChatReply, FinancialSummary as S } from './types';
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -13,6 +13,17 @@ export function parseValue(t: string): number | null {
   if (m[3]) v *= 1000;
   return v > 0 ? v : null;
 }
+/** Prazo no texto: "em 12 meses", "daqui a 2 anos", "ano que vem" */
+export function parseMonths(t: string): number | null {
+  const n = norm(t);
+  let m = n.match(/(\d+)\s*(mes|meses)\b/); if (m) return Number(m[1]);
+  m = n.match(/(\d+)\s*anos?\b/); if (m) return Number(m[1]) * 12;
+  if (/ano que vem|proximo ano/.test(n)) return 12;
+  if (/fim do ano|final do ano|dezembro/.test(n)) { const d = new Date(); return Math.max(1, 11 - d.getMonth()); }
+  return null;
+}
+const ymAhead = (k: number) => { const d = new Date(); d.setMonth(d.getMonth() + k); return d.toISOString().slice(0, 7); };
+const fmtYm = (s: string) => { const [y, m] = s.split('-'); return `${m}/${y}`; };
 const pmt = (pv: number, i: number, n: number) => pv * i / (1 - Math.pow(1 + i, -n));
 
 function noData() {
@@ -43,6 +54,51 @@ function purchase(s: S, text: string) {
   lines.push(`3) Adiar ou buscar opção mais barata (usado, modelo inferior, alugar/emprestar).\n   ✅ Prós: protege seu plano. ❌ Contras: abrir mão do desejo agora.`);
   if (s.liquidAssets > 0) lines.push(`\nVocê tem ${brl(s.liquidAssets)} em ativos líquidos, mas eles também são sua reserva de emergência (${s.reserveMonths.toFixed(1)} meses). Usar para a compra reduz sua proteção.`);
   return lines.join('\n') + END;
+}
+
+/** Planeja um novo objetivo (viagem, compra, reserva) a partir do orçamento livre real do usuário. */
+function newGoal(s: S, text: string): ChatReply {
+  const n = norm(text);
+  const type: 'viagem' | 'compra' | 'reserva' | 'outro' = /viag|ferias|passeio/.test(n) ? 'viagem' : /reserva|emergencia/.test(n) ? 'reserva' : /compr|carro|moto|celular|notebook|casa|apartamento/.test(n) ? 'compra' : 'outro';
+  const dest = text.match(/(?:para|pra|pro|a|ao|à)\s+(?:o |a |os |as )?([A-ZÀ-Ý][\wÀ-ÿ]+(?:\s+(?:de |do |da )?[A-ZÀ-Ý][\wÀ-ÿ]+)*)/);
+  const name = type === 'viagem' ? `Viagem${dest ? ' para ' + dest[1] : ''}` : type === 'reserva' ? 'Reserva de emergência' : 'Novo objetivo';
+  let v = parseValue(text.replace(/\d+\s*(mes|meses|anos?)\b/gi, ''));
+  if (type === 'reserva' && !v) v = Math.max(0, s.reserveTarget6m - s.effReserve);
+  const months = parseMonths(text);
+  const free = Math.max(0, s.freeForGoals), after = Math.max(0, s.freeAfterDebts);
+  const P = s.payoff?.avalancheMonths ?? null;
+  const l: string[] = [];
+  const exp = s.debts.filter(d => d.expensive);
+  l.push(`Pelo seu orçamento, hoje sobram ~${brl(free)}/mês livres para objetivos${s.debts.length ? ` (o resto da sobra vai para as dívidas)${P ? `; depois de quitá-las, em ~${P} meses, sobem para ~${brl(after)}/mês` : ''}` : ''}.`);
+  if (s.goals.length) l.push(`Você já tem ${s.goals.length} objetivo(s) usando parte desse valor (${s.goals.filter(g => g.fits).length} cabem hoje).`);
+  if (exp.length) l.push(`⚠️ Lembrete: com dívidas caras (${exp.map(d => `${d.name} ${d.ratePctMonth}% a.m.`).join(', ')}), cada real nelas rende mais que guardar para ${type === 'viagem' ? 'a viagem' : 'o objetivo'}.`);
+  const actions: ChatAction[] = [];
+  if (!v) {
+    l.push('\nSem um valor definido, veja quanto dá para juntar:');
+    for (const k of [6, 12, 24]) {
+      const tot = P && P < k ? free * P + after * (k - P) : free * k;
+      l.push(`• Em ${k} meses: ~${brl(tot)}`);
+    }
+    l.push('\nSe me disser o valor aproximado (ex.: "viagem de R$ 6 mil"), calculo prazo e parcela e posso criar o objetivo para você.');
+    return { content: l.join('\n') + END };
+  }
+  const accum = (k: number) => P && P < k ? free * P + after * (k - P) : free * k;
+  let mFree = 0; if (free > 0 || after > 0) { mFree = 1; while (accum(mFree) < v && mFree < 600) mFree++; }
+  l.push(`\nObjetivo: ${brl(v)}.`);
+  l.push('\nOpções:');
+  if (months) {
+    const need = v / months;
+    l.push(`1) No prazo que você quer (${months} meses, até ${fmtYm(ymAhead(months))}): guardar ${brl(need)}/mês. ${need <= free ? '✅ Cabe no seu orçamento livre atual.' : `⚠️ Passa do seu livre atual em ${brl(need - free)}/mês — exigiria cortes extras ou renda a mais.`}\n   ✅ Prós: realiza na data desejada. ${need > free ? '❌ Contras: aperta o orçamento. ⚠️ Risco: atrasar o plano de dívidas.' : '❌ Contras: reduz folga para outros objetivos.'}`);
+    actions.push({ type: 'create_goal', label: `Criar objetivo: ${brl(v)} em ${months} meses`, goal: { name, type, target: Math.round(v), date: ymAhead(months) } });
+  }
+  if (mFree > 0 && mFree < 600) {
+    l.push(`${months ? '2' : '1'}) Usando só o que já sobra: ~${mFree} meses (até ${fmtYm(ymAhead(mFree))}), média de ${brl(v / mFree)}/mês.\n   ✅ Prós: não mexe no plano de dívidas. ❌ Contras: ${months && mFree > months ? 'demora mais que o desejado.' : 'exige constância.'}`);
+    if (!months || mFree !== months) actions.push({ type: 'create_goal', label: `Criar objetivo: ${brl(v)} até ${fmtYm(ymAhead(mFree))}`, goal: { name, type, target: Math.round(v), date: ymAhead(mFree) } });
+  } else l.push(`${months ? '2' : '1'}) Hoje não sobra dinheiro livre para este objetivo — o primeiro passo é criar folga (cortes do plano ou renda extra).`);
+  if (type === 'viagem') l.push(`${actions.length + 1}) Versão mais econômica (baixa temporada, destino mais perto, menos dias): com ${brl(v * 0.7)} (−30%) o prazo cai para ~${mFree ? Math.max(1, Math.round(mFree * 0.7)) : '?'} meses.\n   ✅ Prós: realiza antes. ❌ Contras: abre mão de parte do plano original.`);
+  l.push('\n⚠️ Risco geral: parcelar viagem/compra no cartão sem ter o dinheiro costuma virar dívida cara.');
+  if (actions.length) l.push('\nSe quiser, toque em um dos botões abaixo para criar o objetivo na aba Objetivos.');
+  return { content: l.join('\n') + END, actions };
 }
 
 function whichDebt(s: S) {
@@ -111,17 +167,27 @@ function goals(s: S) {
   return l.join('\n') + END;
 }
 
-const HELP = 'Sou o Consultor JM (modo simulação). Posso analisar com seus números:\n• "Posso comprar/financiar algo de R$ X?"\n• "Qual dívida pagar primeiro?"\n• "Quanto devo guardar por mês?"\n• "Como sair do vermelho?"\n• "Vale a pena investir agora?"\n• "Devo vender meu carro para quitar dívidas?"\n• "Meus objetivos cabem no orçamento?"';
+const HELP = 'Sou o Consultor JM (modo simulação). Posso analisar com seus números:\n• "Posso comprar/financiar algo de R$ X?"\n• "Qual dívida pagar primeiro?"\n• "Quanto devo guardar por mês?"\n• "Como sair do vermelho?"\n• "Vale a pena investir agora?"\n• "Devo vender meu carro para quitar dívidas?"\n• "Quero fazer uma viagem de R$ 6 mil" (calculo prazo e crio o objetivo)\n• "Meus objetivos cabem no orçamento?"';
 
-export function simulatedReply(text: string, s: S): string {
+export function simulatedReply(text: string, s: S): ChatReply {
+  const r = route(text, s);
+  return typeof r === 'string' ? { content: r } : r;
+}
+function route(text: string, s: S): string | ChatReply {
   const t = norm(text);
   if (/^(oi|ola|bom dia|boa tarde|boa noite|ajuda|help)\b/.test(t) && t.length < 25) return HELP;
   if (!s.hasData) return noData();
   if (/vender|patrimonio|bens?\b|imovel|usar (meu|minha)/.test(t)) return assets(s);
-  if (/compr|financi|parcel|gastar|trocar de/.test(t)) return purchase(s, text);
+  if (/compr|financi|parcel|gastar|trocar de/.test(t) && !/juntar|guardar para|guardar pra/.test(t)) {
+    const v = parseValue(text); const base = purchase(s, text);
+    if (!v) return base;
+    const g = newGoal(s, text);
+    return { content: base + '\n\nPrefere juntar antes de comprar? Posso criar um objetivo com prazo calculado pelo seu orçamento.', actions: g.actions?.slice(-1) };
+  }
   if (/qual divida|pagar primeiro|quitar|avalanche|bola de neve|renegoci/.test(t)) return whichDebt(s);
   if (/invest|aplicar|render|tesouro|acoes|cdb/.test(t)) return invest(s);
-  if (/objetivo|meta|viagem|aposent/.test(t)) return goals(s);
+  if (/meus objetivos|minhas metas|objetivos cabem|aposent/.test(t)) return goals(s);
+  if (/viag|ferias|juntar|guardar para|guardar pra|quero (ter|fazer|comprar)|objetivo|meta|reserva de emergencia/.test(t)) return newGoal(s, text);
   if (/guardar|poupar|economizar|reserva|quanto devo/.test(t)) return howMuchSave(s);
   if (/vermelho|sair d|endivid|apertad|nao sobra|divida|situacao|diagnostic/.test(t)) return outOfRed(s);
   return 'Não tenho certeza se entendi. ' + HELP;

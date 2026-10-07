@@ -1,5 +1,8 @@
 export type ChatRole = 'user' | 'assistant';
-export type ChatMessage = { id: string; role: ChatRole; content: string; at: number };
+/** Ação opcional sugerida pelo consultor (o usuário decide se executa). */
+export type ChatAction = { type: 'create_goal'; label: string; goal: { name: string; type: 'viagem' | 'compra' | 'reserva' | 'outro'; target: number; date: string } };
+export type ChatMessage = { id: string; role: ChatRole; content: string; at: number; actions?: ChatAction[]; done?: boolean };
+export type ChatReply = { content: string; actions?: ChatAction[] };
 
 /** Resumo financeiro enviado ao consultor (simulado ou LLM real). Sem dados identificáveis. */
 export type FinancialSummary = {
@@ -23,5 +26,5 @@ export interface ChatProvider {
   id: string;
   label: string;
   simulated: boolean;
-  sendMessage(history: ChatMessage[], financialSummary: FinancialSummary): Promise<string>;
+  sendMessage(history: ChatMessage[], financialSummary: FinancialSummary): Promise<ChatReply>;
 }
