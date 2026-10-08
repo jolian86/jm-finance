@@ -4,6 +4,8 @@ import Chat from './Chat';
 import Evolucao from './Evolucao';
 import Simulador from './Simulador';
 import Backup from './Backup';
+import { Welcome, TermsSheet, deleteAllData } from './Terms';
+import { TERMS_VERSION, hasAccepted } from './terms';
 import type { SimId } from './sim';
 import { Bell, AlertsPanel, Modal } from './AlertsCenter';
 import { computeAlerts, notifyNew, saveReminders, AlertTab } from './alerts';
@@ -45,6 +47,11 @@ export default function App() {
   const [simId, setSimId] = useState<SimId | undefined>(() => (new URLSearchParams(location.search).get('sim') as SimId) || undefined);
   const openSim = (s?: SimId) => { setSimId(s); setChat(false); setTab('simulador'); window.scrollTo({ top: 0 }); };
   const go = (t: Tab | AlertTab) => { if (t === 'evolucao') { setDiagView('evolucao'); setTab('diagnostico'); } else { if (t === 'diagnostico') setDiagView('hoje'); setTab(t); } window.scrollTo({ top: 0 }); };
+  // termos de uso (aceite obrigatório no 1º uso, para usuários antigos e quando a versão muda)
+  const accepted = hasAccepted(data.settings.terms);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const acceptTerms = () => { setData(d => ({ ...d, settings: { ...d.settings, terms: { version: TERMS_VERSION, acceptedAt: new Date().toISOString() } } })); window.scrollTo({ top: 0 }); };
+  const acceptedOn = data.settings.terms ? new Date(data.settings.terms.acceptedAt).toLocaleDateString('pt-BR') : '';
   // alertas
   const alerts = useMemo(() => computeAlerts(data), [data]);
   const unread = alerts.filter(a => !data.dismissedAlerts.includes(a.id)).length;
@@ -57,14 +64,16 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
     <AnimatePresence>{splash && <Splash onDone={() => { sessionStorage.setItem('jm:splash', '1'); setSplash(false); }} />}</AnimatePresence>
-    <div className="app">
+    <AnimatePresence>{!accepted && <Welcome key="welcome" prev={data.settings.terms} hasData={hasData || data.debts.length > 0 || data.goals.length > 0 || data.history.length > 0} onAccept={acceptTerms} />}</AnimatePresence>
+    {accepted && <div className="app">
       <header><BrandLockup small />
         <div className="head-right">{data.isExample && <span className="badge-ex">EXEMPLO</span>}<Bell count={unread} onClick={() => setAlertsOpen(true)} /></div></header>
       <main>
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={setData} onCloseMonth={() => setAskClose(true)} />}
-            {tab === 'dados' && <><Inputs data={data} upd={upd} setData={setData} onCloseMonth={() => setAskClose(true)} /><Backup data={data} setData={setData} /></>}
+            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={setData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
+            {tab === 'dados' && <><Inputs data={data} upd={upd} setData={setData} onCloseMonth={() => setAskClose(true)} /><Backup data={data} setData={setData} />
+              <p className="terms-foot"><button className="link" onClick={() => setTermsOpen(true)}>Termos e privacidade</button>{acceptedOn && <> · aceitos em {acceptedOn} (versão {data.settings.terms!.version})</>}</p></>}
             {tab === 'diagnostico' && (hasData ? <>
               <ExportBtn data={data} />
               <div className="seg" role="tablist">{(['hoje', 'evolucao'] as const).map(v => <button key={v} role="tab" aria-selected={diagView === v} className={diagView === v ? 'on' : ''} onClick={() => setDiagView(v)}>
@@ -90,13 +99,14 @@ export default function App() {
         <p className="hint">Vamos guardar uma foto de {ymShort(data.month)}: renda, gastos por categoria, dívidas, patrimônio, reserva, nota e objetivos. Depois:</p>
         <ul className="steps-mini"><li>o app passa para o mês seguinte;</li><li>os gastos reais lançados são zerados (o orçamento planejado continua);</li><li>atualize saldos de dívidas, reserva e bens quando mudarem.</li></ul>
       </Modal>}</AnimatePresence>
+      <AnimatePresence>{termsOpen && <TermsSheet acceptance={data.settings.terms} onClose={() => setTermsOpen(false)} onDeleteAll={async () => { await deleteAllData(); location.replace(location.pathname); }} />}</AnimatePresence>
       <nav>
         {([['inicio', Icon.home, 'Início'], ['dados', Icon.edit, 'Meus dados'], ['diagnostico', Icon.pulse, 'Diagnóstico'], ['plano', Icon.compass, 'Plano'], ['objetivos', Icon.target, 'Objetivos']] as const).map(([k, I, l]) =>
           <button key={k} className={tab === k || (tab === 'simulador' && k === 'plano') ? 'on' : ''} onClick={() => go(k)} aria-current={tab === k ? 'page' : undefined}>
             {(tab === k || (tab === 'simulador' && k === 'plano')) && <motion.span layoutId="navpill" className="navpill" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
             <span className="ni"><I /></span>{l}</button>)}
       </nav>
-    </div>
+    </div>}
     </MotionConfig>
   );
 }
@@ -105,7 +115,7 @@ function Empty({ go }: { go: (t: Tab) => void }) {
   return <div className="card center"><p>Cadastre pelo menos uma renda para ver esta tela.</p><button className="btn" onClick={() => go('dados')}>Cadastrar meus dados</button></div>;
 }
 
-function Home({ data, hasData, go, setData, onCloseMonth }: { data: Data; hasData: boolean; go: (t: Tab | AlertTab) => void; setData: (d: Data) => void; onCloseMonth: () => void }) {
+function Home({ data, hasData, go, setData, onCloseMonth, onTerms }: { data: Data; hasData: boolean; go: (t: Tab | AlertTab) => void; setData: (d: Data) => void; onCloseMonth: () => void; onTerms: () => void }) {
   const r = useMemo(() => diagnose(data), [data]);
   const ds = useMemo(() => deltas(data).slice(0, 2), [data]);
   return <>
@@ -139,7 +149,7 @@ function Home({ data, hasData, go, setData, onCloseMonth }: { data: Data; hasDat
       <p><b>Quer só conhecer?</b> Carregue um caso fictício para ver como o app funciona.</p>
       <button className="btn ghost full" onClick={() => { if (!hasData || confirm('Isso substitui seus dados atuais. Continuar?')) { setData(fullExample()); go('diagnostico'); } }}>Carregar dados de EXEMPLO (fictícios)</button>
     </div>
-    <p className="disc">O JM Finance é uma ferramenta educativa e não substitui orientação de um profissional certificado. Seus dados ficam apenas neste aparelho.</p>
+    <p className="disc">O JM Finance é uma ferramenta educativa e não substitui orientação de um profissional certificado. Seus dados ficam apenas neste aparelho. <button className="link" onClick={onTerms}>Termos e privacidade</button></p>
   </>;
 }
 

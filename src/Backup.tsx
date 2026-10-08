@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Data, brl } from './finance';
 import { ymTitle } from './history';
 import { Modal } from './AlertsCenter';
+import { hasAccepted } from './terms';
 import { exportBackup, readBackupFile, restoreChat, loadChat, BackupError, ImportPreview } from './backup';
 
 const fmtDate = (iso?: string) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
@@ -37,7 +38,9 @@ export default function Backup({ data, setData }: { data: Data; setData: (d: Dat
   const confirmImport = () => {
     if (!preview) return;
     restoreChat(preview.chat);
-    setData(preview.data);
+    // mantém o aceite atual dos termos se o backup não tiver um aceite da versão vigente
+    const t = hasAccepted(preview.data.settings.terms) ? preview.data.settings.terms : data.settings.terms;
+    setData({ ...preview.data, settings: { ...preview.data.settings, terms: t } });
     sessionStorage.setItem('jm:nm', '1');
     setMsg({ tone: 'ok', text: `Backup importado! Seus dados de ${ymTitle(preview.data.month)} foram restaurados.` });
     setPreview(null);
@@ -69,6 +72,7 @@ export default function Backup({ data, setData }: { data: Data; setData: (d: Dat
         <li><span>Dívidas</span><b>{p.debts.length}{p.debts.length ? ` (${brl(Math.round(totalDebt))})` : ''}</b></li>
         <li><span>Rendas · gastos · bens</span><b>{p.incomes.length} · {p.expenses.length} · {p.assets.length}</b></li>
         <li><span>Conversa com o Consultor</span><b>{preview.chat?.length ? plural(preview.chat.length, 'mensagem', 'mensagens') : 'não incluída'}</b></li>
+        <li><span>Termos aceitos</span><b>{p.settings.terms ? `versão ${p.settings.terms.version} em ${fmtDate(p.settings.terms.acceptedAt)}` : 'não registrado'}</b></li>
         <li><span>Versão</span><b>app {preview.appVersion} · formato v{preview.schemaVersion}{preview.migrated ? ' (convertido para o formato atual)' : ''}</b></li>
       </ul>
       {p.isExample && <p className="hint">Este backup contém dados de EXEMPLO (fictícios).</p>}

@@ -29,7 +29,8 @@ export type Data = {
 };
 /** Versão do formato dos dados (sobe quando o formato muda; dados antigos passam por migrate). */
 export const SCHEMA_VERSION = 6;
-export type Settings = { alertTime: string; firstSeenAt?: string; lastBackupAt?: string };
+/** terms: aceite dos Termos de Uso/Política de Privacidade (versão + data/hora ISO). */
+export type Settings = { alertTime: string; firstSeenAt?: string; lastBackupAt?: string; terms?: { version: string; acceptedAt: string } };
 export const DEFAULT_SETTINGS: Settings = { alertTime: '09:00' };
 export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'outros';
 
@@ -77,7 +78,8 @@ export function migrate(raw: unknown): Data {
     history: arr<Snapshot>(d.history).filter(h => h && typeof h.month === 'string'),
     dismissedAlerts: arr<string>(d.dismissedAlerts),
     settings: { ...DEFAULT_SETTINGS, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}), alertTime: /^\d{2}:\d{2}$/.test(String(d.settings?.alertTime)) ? String(d.settings!.alertTime) : DEFAULT_SETTINGS.alertTime,
-      firstSeenAt: isoOk(d.settings?.firstSeenAt) ? d.settings!.firstSeenAt : new Date().toISOString(), lastBackupAt: isoOk(d.settings?.lastBackupAt) ? d.settings!.lastBackupAt : undefined },
+      firstSeenAt: isoOk(d.settings?.firstSeenAt) ? d.settings!.firstSeenAt : new Date().toISOString(), lastBackupAt: isoOk(d.settings?.lastBackupAt) ? d.settings!.lastBackupAt : undefined,
+      terms: d.settings?.terms && typeof d.settings.terms.version === 'string' && isoOk(d.settings.terms.acceptedAt) ? { version: d.settings.terms.version, acceptedAt: d.settings.terms.acceptedAt } : undefined },
   };
 }
 const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMonth() + monthsAhead); return t.toISOString().slice(0, 7); };
