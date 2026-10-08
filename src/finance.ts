@@ -75,8 +75,10 @@ export function migrate(raw: unknown): Data {
   const arr = <T,>(v: unknown) => (Array.isArray(v) ? v as T[] : []);
   return {
     ...emptyData(), ...d,
-    incomes: arr<Income>(d.incomes).map(i => ({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable })), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses), debts: arr<Debt>(d.debts),
-    assets: arr<Asset>(d.assets), goals: arr<Goal>(d.goals), reserve: Number(d.reserve) || 0,
+    incomes: arr<Income>(d.incomes).map(i => ({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable })), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: e.kind === 'variavel' ? 'variavel' : 'fixa' })),
+    debts: arr<Debt>(d.debts).filter(o => o && typeof o === 'object').map(x => ({ ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in DEBT_TYPES ? x.type : 'outro', balance: Number(x.balance) || 0, rate: Number(x.rate) || 0, minPayment: Number(x.minPayment) || 0 })),
+    assets: arr<Asset>(d.assets).filter(o => o && typeof o === 'object').map(x => ({ ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in ASSET_TYPES ? x.type : 'outros', value: Number(x.value) || 0, liquid: !!x.liquid })),
+    goals: arr<Goal>(d.goals).filter(o => o && typeof o === 'object').map(g => ({ ...g, id: String(g.id || uid()), name: String(g.name ?? ''), type: g.type in GOAL_TYPES ? g.type : 'outro', target: Number(g.target) || 0, saved: Number(g.saved) || 0, date: typeof g.date === 'string' ? g.date : ym(12), priority: g.priority || 'media' as Goal['priority'] })), reserve: Number(d.reserve) || 0,
     month: typeof d.month === 'string' && /^\d{4}-\d{2}$/.test(d.month) ? d.month : thisMonth(),
     actuals: d.actuals && typeof d.actuals === 'object' ? d.actuals : {},
     history: arr<Snapshot>(d.history).filter(h => h && typeof h.month === 'string'),

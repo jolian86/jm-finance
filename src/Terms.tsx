@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Portal, useOverlayLock } from './overlay';
 import { BrandLockup } from './ui';
 import { Modal } from './AlertsCenter';
 import { DISCLAIMER } from './finance';
@@ -25,6 +26,7 @@ function Section({ title, sub, blocks, open, onToggle }: { title: string; sub: s
 
 /** Tela de boas-vindas com aceite obrigatório (primeiro uso, usuários antigos e mudança de versão). */
 export function Welcome({ prev, hasData, onAccept }: { prev?: TermsAcceptance; hasData: boolean; onAccept: () => void }) {
+  useOverlayLock();
   const [ok, setOk] = useState(false);
   const [open, setOpen] = useState<'t' | 'p' | null>(null);
   const changed = !!prev && prev.version !== TERMS_VERSION;
@@ -56,7 +58,7 @@ export function TermsSheet({ acceptance, onClose, onDeleteAll }: { acceptance?: 
   const [view, setView] = useState<'t' | 'p'>('t');
   const [ask, setAsk] = useState(false);
   return <>
-    <motion.div className="sheet-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+    <Portal><motion.div className="sheet-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div className="sheet terms-sheet" role="dialog" aria-label="Termos e privacidade" initial={{ y: -24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -24, opacity: 0 }} transition={{ duration: 0.25 }} onClick={e => e.stopPropagation()}>
         <div className="sheet-head"><h3 style={{ margin: 0 }}>Termos e privacidade</h3><button className="chat-back" onClick={onClose} aria-label="Fechar">✕</button></div>
         <div className="accept-status">{acceptance ? <>✓ Você aceitou a <b>versão {acceptance.version}</b> em <b>{fmtAccept(acceptance.acceptedAt)}</b>.</> : 'Aceite ainda não registrado.'}</div>
@@ -68,7 +70,7 @@ export function TermsSheet({ acceptance, onClose, onDeleteAll }: { acceptance?: 
           <button className="btn sm danger" onClick={() => setAsk(true)}>Apagar todos os dados deste aparelho</button></div>
         <p className="jm-disc">{DISCLAIMER}</p>
       </motion.div>
-    </motion.div>
+    </motion.div></Portal>
     <AnimatePresence>{ask && <Modal danger title="Apagar todos os dados?" confirm="Apagar tudo" cancel="Cancelar" onCancel={() => setAsk(false)} onConfirm={onDeleteAll}>
       <p>Tudo o que a JM Finance guardou neste aparelho será apagado: renda, gastos, dívidas, bens, objetivos, histórico, conversa com o Consultor, preferências e o aceite dos termos.</p>
       <div className="danger-box">Não dá para desfazer. Sem um backup, os dados não podem ser recuperados.</div>

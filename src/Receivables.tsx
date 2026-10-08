@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Portal } from './overlay';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { Data, Income, DISCLAIMER, brl, varStats } from './finance';
 import { ymShort, ymAdd } from './history';
@@ -93,10 +94,14 @@ function RecvForm({ initial, isNew, note, onCancel, onSave, onDelete }: { initia
   const setType = (type: RecvType) => { const t = RECV_TYPES[type]; setR(x => ({ ...x, type, ...(isNew ? { certainty: t.cert, prob: CERT[t.cert].prob, discountPct: t.discount } : {}) })); };
   const setCert = (c: Certainty) => setR(x => ({ ...x, certainty: c, prob: CERT[c].prob }));
   const addRow = () => { const last = rows[rows.length - 1]; const m = last ? (last.m % 12) + 1 : new Date().getMonth() + 1; setRows([...rows, { id: Math.random().toString(36).slice(2, 10), label: `${rows.length + 1}ª parcela`, y: last ? (last.m === 12 ? last.y + 1 : last.y) : yearNow, m, day: '', gross: last?.gross ?? '', net: '' }]); };
+  const netRow = (x: Row) => num(x.gross) > 0 ? (x.net.trim() !== '' ? num(x.net) : num(x.gross) * (1 - r.discountPct / 100)) : 0;
+  const firstVal = useRef<HTMLInputElement>(null);
+  // valor vazio (ex.: sem salário cadastrado) → já foca o campo de valor
+  useEffect(() => { if (!rows.some(x => num(x.gross) > 0)) setTimeout(() => firstVal.current?.focus({ preventScroll: false }), 350); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const sample = rows[0] ? (rows[0].net ? num(rows[0].net) : num(rows[0].gross) * (1 - r.discountPct / 100)) : 0;
   const submit = () => {
     if (!r.name.trim()) return setErr('Dê um nome (ex.: “PLR”, “Honorários — cliente X”).');
-    if (!rows.some(x => num(x.gross) > 0)) return setErr('Informe o valor bruto de pelo menos uma parcela.');
+    if (!rows.some(x => num(x.gross) > 0)) { firstVal.current?.focus(); return setErr('Informe o valor bruto (campo “Valor bruto”) de pelo menos uma parcela.'); }
     const insts: RecvInstallment[] = rows.filter(x => num(x.gross) > 0).map(x => {
       const mm = String(x.m).padStart(2, '0'); let y = x.y;
       if (r.recurrence === 'yearly' && (!x.origYm || Number(x.origYm.slice(5, 7)) !== x.m)) y = nextYearFor(x.m);
@@ -107,7 +112,7 @@ function RecvForm({ initial, isNew, note, onCancel, onSave, onDelete }: { initia
     onSave({ ...r, name: r.name.trim(), prob: r.certainty === 'garantido' ? 100 : r.prob, installments: single ? insts.slice(0, 1) : insts, until: r.recurrence === 'monthly' && until ? until : undefined });
   };
   const shownRows = r.recurrence === 'once' || r.recurrence === 'monthly' ? rows.slice(0, 1) : rows;
-  return <motion.div className="sheet-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCancel}>
+  return <Portal><motion.div className="sheet-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCancel}>
     <motion.div className="sheet recv-form" role="dialog" aria-label="Receita futura" initial={{ y: -24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -24, opacity: 0 }} transition={{ duration: 0.25 }} onClick={e => e.stopPropagation()}>
       <div className="sheet-head"><h3 style={{ margin: 0 }}>{isNew ? 'Nova receita futura' : 'Editar receita futura'}</h3><button className="chat-back" onClick={onCancel} aria-label="Fechar">✕</button></div>
       {note && <p className="form-note">{note}</p>}
@@ -117,30 +122,38 @@ function RecvForm({ initial, isNew, note, onCancel, onSave, onDelete }: { initia
       <div className="lbl">Certeza de receber</div>
       <div className="cert-pick">{(Object.keys(CERT) as Certainty[]).map(c => <button key={c} className={r.certainty === c ? 'on' : ''} onClick={() => setCert(c)}><CertDot c={c} />{CERT[c].label}<small>{c === 'garantido' ? '100%' : `${CERT[c].prob}% padrão`}</small></button>)}</div>
       {r.certainty !== 'garantido' && <label>Chance de receber (%)<input type="number" inputMode="numeric" min={1} max={99} value={r.prob} onChange={e => setR({ ...r, prob: Math.max(1, Math.min(99, Math.round(num(e.target.value)))) })} /></label>}
-      <label>Desconto estimado (%)<input type="number" inputMode="decimal" min={0} max={100} value={r.discountPct || ''} placeholder="0" onChange={e => setR({ ...r, discountPct: Math.max(0, Math.min(100, num(e.target.value))) })} />
+      <label>Desconto estimado (%) <small className="opt">— vale para as parcelas sem líquido</small><input type="number" inputMode="decimal" min={0} max={100} value={r.discountPct || ''} placeholder="0" onChange={e => setR({ ...r, discountPct: Math.max(0, Math.min(100, num(e.target.value))) })} />
         <small className="fhint">{T.hint || 'IR, INSS, impostos, glosas, taxas…'} Se souber o valor líquido exato, preencha “líquido” na parcela.</small></label>
       <label>Recorrência<select value={r.recurrence} onChange={e => setR({ ...r, recurrence: e.target.value as Recurrence })}>
         <option value="once">Uma vez</option><option value="monthly">Todo mês</option><option value="yearly">Todo ano (ex.: 13º, férias, PLR)</option><option value="custom">Parcelas com datas diferentes</option></select></label>
       <div className="lbl">{r.recurrence === 'monthly' ? 'A partir de' : r.recurrence === 'yearly' ? 'Parcelas de cada ano' : r.recurrence === 'custom' ? 'Parcelas' : 'Quando'}</div>
-      {shownRows.map(x => <div key={x.id} className="inst-row">
-        {r.recurrence !== 'once' && r.recurrence !== 'monthly' && <input className="inst-label" value={x.label} placeholder="Descrição (ex.: 1ª parcela)" onChange={e => setRow(x.id, { label: e.target.value })} />}
+      {shownRows.map((x, i) => { const g = num(x.gross); const est = x.net.trim() !== '' ? num(x.net) : g * (1 - r.discountPct / 100);
+        const multi = r.recurrence !== 'once' && r.recurrence !== 'monthly';
+        return <div key={x.id} className={`inst-row ${err && !(g > 0) ? 'need' : ''}`}>
+        <div className="inst-head">{multi ? <input className="inst-label" aria-label={`Descrição da parcela ${i + 1}`} value={x.label} placeholder={`${i + 1}ª parcela`} onChange={e => setRow(x.id, { label: e.target.value })} />
+          : <b className="inst-title">{r.recurrence === 'monthly' ? 'Valor de cada mês' : 'Valor e data'}</b>}
+          {shownRows.length > 1 && <button className="x" aria-label={`Remover parcela ${i + 1}`} onClick={() => setRows(rows.filter(y => y.id !== x.id))}>✕</button>}</div>
+        <div className="inst-vals">
+          <label className="mini val">Valor bruto (R$)<input ref={i === 0 ? firstVal : undefined} aria-label={multi ? `Valor bruto da ${x.label || `${i + 1}ª parcela`}` : 'Valor bruto'} data-val="bruto" type="number" inputMode="decimal" min={0} placeholder="Digite o valor" value={x.gross} onChange={e => setRow(x.id, { gross: e.target.value })} /></label>
+          <label className="mini">Líquido (opcional)<input aria-label={multi ? `Valor líquido da ${x.label || `${i + 1}ª parcela`} (opcional)` : 'Valor líquido (opcional)'} data-val="liquido" type="number" inputMode="decimal" min={0} placeholder={g > 0 ? String(Math.round(est)) : 'auto'} value={x.net} onChange={e => setRow(x.id, { net: e.target.value })} /></label>
+        </div>
+        {g > 0 && <small className="inst-est">{x.net.trim() !== '' ? <>Líquido informado: <b>{brl0(est)}</b></> : <>≈ <b>{brl0(est)}</b> líquido{r.discountPct ? ` (desconto estimado de ${r.discountPct}%)` : ''}</>}</small>}
         <div className="inst-grid">
-          <label className="mini">Mês<select aria-label="Mês" value={x.m} onChange={e => setRow(x.id, { m: Number(e.target.value) })}>{MONTHS_SHORT.map((mm, i) => <option key={i} value={i + 1}>{mm}</option>)}</select></label>
-          {r.recurrence !== 'yearly' && <label className="mini">Ano<select aria-label="Ano" value={x.y} onChange={e => setRow(x.id, { y: Number(e.target.value) })}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></label>}
-          <label className="mini">Dia (opc.)<input aria-label="Dia (opcional)" type="number" inputMode="numeric" min={1} max={31} placeholder="—" value={x.day} onChange={e => setRow(x.id, { day: e.target.value })} /></label>
-          <label className="mini">Bruto (R$)<input aria-label="Valor bruto" type="number" inputMode="decimal" placeholder="0" value={x.gross} onChange={e => setRow(x.id, { gross: e.target.value })} /></label>
-          <label className="mini">Líquido (opc.)<input aria-label="Valor líquido (opcional)" type="number" inputMode="decimal" placeholder="auto" value={x.net} onChange={e => setRow(x.id, { net: e.target.value })} /></label>
-          {shownRows.length > 1 && <button className="x" aria-label="Remover parcela" onClick={() => setRows(rows.filter(y => y.id !== x.id))}>✕</button>}
-        </div></div>)}
+          <label className="mini">Mês<select aria-label={multi ? `Mês da ${x.label || `${i + 1}ª parcela`}` : 'Mês'} value={x.m} onChange={e => setRow(x.id, { m: Number(e.target.value) })}>{MONTHS_SHORT.map((mm, k) => <option key={k} value={k + 1}>{mm}</option>)}</select></label>
+          {r.recurrence !== 'yearly' ? <label className="mini">Ano<select aria-label="Ano" value={x.y} onChange={e => setRow(x.id, { y: Number(e.target.value) })}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></label> : <span className="mini yearly">todo ano</span>}
+          <label className="mini">Dia (opcional)<input aria-label="Dia (opcional)" type="number" inputMode="numeric" min={1} max={31} placeholder="—" value={x.day} onChange={e => setRow(x.id, { day: e.target.value })} /></label>
+        </div></div>; })}
       {(r.recurrence === 'custom' || r.recurrence === 'yearly') && <button className="btn ghost sm" onClick={addRow}>+ Parcela</button>}
       {r.recurrence === 'monthly' && <label>Até (opcional)<input type="month" value={until} onChange={e => setUntil(e.target.value)} /></label>}
       <p className="fhint">Dia em branco = em algum dia do mês (consideramos o fim do mês para atrasos).</p>
-      {sample > 0 && <div className="form-preview">Líquido estimado {shownRows.length > 1 ? 'da 1ª parcela' : ''}: <b>{brl0(sample)}</b>{r.certainty !== 'garantido' && <> · no plano (ponderado): <b>{brl0(sample * r.prob / 100)}</b></>}</div>}
-      {err && <p className="backup-msg err">{err}</p>}
-      <div className="modal-actions">{!isNew && <button className="link danger-link" onClick={onDelete}>Excluir</button>}<span style={{ flex: 1 }} /><button className="btn ghost" onClick={onCancel}>Cancelar</button><button className="btn" onClick={submit}>Salvar</button></div>
+      {sample > 0 && <div className="form-preview">{shownRows.length > 1 ? <>Líquido estimado: {shownRows.filter(x => num(x.gross) > 0).map((x, i) => <span key={x.id}>{i ? ' · ' : ''}{MONTHS_SHORT[x.m - 1]} <b>{brl0(netRow(x))}</b></span>)}
+        {' '}= <b>{brl0(shownRows.reduce((t, x) => t + netRow(x), 0))}</b>{r.recurrence === 'yearly' ? ' por ano' : ''}</> : <>Líquido estimado: <b>{brl0(sample)}</b>{r.recurrence === 'monthly' ? ' por mês' : ''}</>}
+        {r.certainty !== 'garantido' && <> · no plano (ponderado pela chance de {r.prob}%): <b>{brl0((shownRows.length > 1 ? shownRows.reduce((t, x) => t + netRow(x), 0) : sample) * r.prob / 100)}</b></>}</div>}
       <Disc />
+      {err && <p className="backup-msg err" role="alert">{err}</p>}
+      <div className="modal-actions sticky-actions">{!isNew && <button className="link danger-link" onClick={onDelete}>Excluir</button>}<span style={{ flex: 1 }} /><button className="btn ghost" onClick={onCancel}>Cancelar</button><button className="btn" onClick={submit}>Salvar</button></div>
     </motion.div>
-  </motion.div>;
+  </motion.div></Portal>;
 }
 
 // ================= Previsão de recebimentos + precisão =================

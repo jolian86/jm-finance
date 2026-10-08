@@ -4,6 +4,7 @@ import { Data, DISCLAIMER, uid } from './finance';
 import { getProvider, buildSummary, ChatMessage, ChatAction } from './ai';
 import type { SimLink } from './ai/types';
 import mark from './assets/jm-mark-96.webp';
+import { useOverlayLock } from './overlay';
 
 const KEY = 'jmfinance:chat';
 const CHIPS = ['Como usar minha PLR?', 'Como sair do vermelho?', 'Qual dívida pagar primeiro?', 'Quero fazer uma viagem de R$ 6 mil', 'Posso financiar um carro de R$ 40 mil?', 'Quanto devo guardar por mês?', 'Vale a pena investir agora?'];
@@ -11,6 +12,7 @@ const loadChat = (): ChatMessage[] => { try { const v = JSON.parse(localStorage.
 const bubble = { initial: { opacity: 0, y: 10, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { duration: 0.25 } };
 
 export default function Chat({ data, upd, onClose, goGoals, openSim }: { data: Data; upd: (p: Partial<Data>) => void; onClose: () => void; goGoals: () => void; openSim: (s: SimLink) => void }) {
+  useOverlayLock();
   const provider = useMemo(getProvider, []);
   const [msgs, setMsgs] = useState<ChatMessage[]>(loadChat);
   const [text, setText] = useState('');

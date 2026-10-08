@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Alert, AlertTab, enableNotifications, disableNotifications, notifEnabled, notifSupported } from './alerts';
 import { DISCLAIMER } from './finance';
+import { Portal } from './overlay';
 
 export function Bell({ count, onClick }: { count: number; onClick: () => void }) {
   return <button className="bell" onClick={onClick} aria-label={`Alertas${count ? `: ${count} novos` : ''}`}>
@@ -27,7 +28,7 @@ export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onC
     else if (r === 'unsupported') setMsg('Este navegador não suporta notificações. No iPhone, instale o app na tela inicial (iOS 16.4+).');
     else setMsg('Permissão negada. Você pode liberar nas configurações do navegador.');
   }
-  return <motion.div className="sheet-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+  return <Portal><motion.div className="sheet-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
     <motion.div className="sheet" role="dialog" aria-label="Central de alertas" initial={{ y: -24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -24, opacity: 0 }} transition={{ duration: 0.25 }} onClick={e => e.stopPropagation()}>
       <div className="sheet-head"><h3 style={{ margin: 0 }}>Alertas</h3><button className="chat-back" onClick={onClose} aria-label="Fechar">✕</button></div>
       {!active.length && <p className="hint" style={{ padding: '8px 0' }}>Nenhum alerta no momento. 👌</p>}
@@ -53,14 +54,14 @@ export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onC
       </div>
       <p className="jm-disc">{DISCLAIMER}</p>
     </motion.div>
-  </motion.div>;
+  </motion.div></Portal>;
 }
 
 export function Modal({ title, children, confirm, cancel = 'Agora não', onConfirm, onCancel, danger }: { title: string; children: React.ReactNode; confirm: string; cancel?: string; onConfirm: () => void; onCancel: () => void; danger?: boolean }) {
-  return <motion.div className="sheet-wrap center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCancel}>
+  return <Portal><motion.div className="sheet-wrap center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCancel}>
     <motion.div className="modal" role="dialog" aria-modal="true" aria-label={title} initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.94, opacity: 0 }} onClick={e => e.stopPropagation()}>
       <h3>{title}</h3>{children}
       <div className="modal-actions"><button className="btn ghost" onClick={onCancel}>{cancel}</button><button className={`btn ${danger ? 'danger' : ''}`} onClick={onConfirm}>{confirm}</button></div>
     </motion.div>
-  </motion.div>;
+  </motion.div></Portal>;
 }
