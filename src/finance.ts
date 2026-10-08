@@ -27,7 +27,9 @@ export type Data = {
   /** preferências (o horário de alertas será usado também por um futuro servidor de push) */
   settings: Settings;
 };
-export type Settings = { alertTime: string };
+/** Versão do formato dos dados (sobe quando o formato muda; dados antigos passam por migrate). */
+export const SCHEMA_VERSION = 6;
+export type Settings = { alertTime: string; firstSeenAt?: string; lastBackupAt?: string };
 export const DEFAULT_SETTINGS: Settings = { alertTime: '09:00' };
 export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'outros';
 
@@ -61,6 +63,7 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [], month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS } });
+const isoOk = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
 // Migra dados antigos (sem assets/goals) sem quebrar
 export function migrate(raw: unknown): Data {
   const d = (raw && typeof raw === 'object' ? raw : {}) as Partial<Data>;
@@ -73,7 +76,8 @@ export function migrate(raw: unknown): Data {
     actuals: d.actuals && typeof d.actuals === 'object' ? d.actuals : {},
     history: arr<Snapshot>(d.history).filter(h => h && typeof h.month === 'string'),
     dismissedAlerts: arr<string>(d.dismissedAlerts),
-    settings: { ...DEFAULT_SETTINGS, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}), alertTime: /^\d{2}:\d{2}$/.test(String(d.settings?.alertTime)) ? String(d.settings!.alertTime) : DEFAULT_SETTINGS.alertTime },
+    settings: { ...DEFAULT_SETTINGS, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}), alertTime: /^\d{2}:\d{2}$/.test(String(d.settings?.alertTime)) ? String(d.settings!.alertTime) : DEFAULT_SETTINGS.alertTime,
+      firstSeenAt: isoOk(d.settings?.firstSeenAt) ? d.settings!.firstSeenAt : new Date().toISOString(), lastBackupAt: isoOk(d.settings?.lastBackupAt) ? d.settings!.lastBackupAt : undefined },
   };
 }
 const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMonth() + monthsAhead); return t.toISOString().slice(0, 7); };

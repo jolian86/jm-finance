@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
 import Evolucao from './Evolucao';
 import Simulador from './Simulador';
+import Backup from './Backup';
 import type { SimId } from './sim';
 import { Bell, AlertsPanel, Modal } from './AlertsCenter';
 import { computeAlerts, notifyNew, saveReminders, AlertTab } from './alerts';
@@ -63,7 +64,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
             {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={setData} onCloseMonth={() => setAskClose(true)} />}
-            {tab === 'dados' && <Inputs data={data} upd={upd} setData={setData} onCloseMonth={() => setAskClose(true)} />}
+            {tab === 'dados' && <><Inputs data={data} upd={upd} setData={setData} onCloseMonth={() => setAskClose(true)} /><Backup data={data} setData={setData} /></>}
             {tab === 'diagnostico' && (hasData ? <>
               <ExportBtn data={data} />
               <div className="seg" role="tablist">{(['hoje', 'evolucao'] as const).map(v => <button key={v} role="tab" aria-selected={diagView === v} className={diagView === v ? 'on' : ''} onClick={() => setDiagView(v)}>
@@ -81,6 +82,7 @@ export default function App() {
       <AnimatePresence>{alertsOpen && <AlertsPanel alerts={alerts} dismissed={data.dismissedAlerts}
         onDismiss={id => upd({ dismissedAlerts: [...data.dismissedAlerts, id] })} onRestore={() => upd({ dismissedAlerts: [] })}
         onGo={t => { setAlertsOpen(false); go(t); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)}
+        onBackup={() => { setAlertsOpen(false); go('dados'); setTimeout(() => document.getElementById('backup')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 450); }}
         alertTime={data.settings.alertTime} onTime={t => upd({ settings: { ...data.settings, alertTime: t } })} />}</AnimatePresence>
       <AnimatePresence>{(askClose || newMonthPrompt) && <Modal title={newMonthPrompt && !askClose ? 'Começou um novo mês!' : `Fechar ${ymLong(data.month)}?`} confirm="Fechar mês"
         onConfirm={doClose} onCancel={() => { setAskClose(false); setNewMonthPrompt(false); sessionStorage.setItem('jm:nm', '1'); }}>

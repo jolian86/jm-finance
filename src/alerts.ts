@@ -20,13 +20,19 @@ export function billAlert(name: string, value: number, day: number, st: BillStag
 }
 
 export type AlertTab = 'inicio' | 'dados' | 'diagnostico' | 'plano' | 'objetivos' | 'evolucao';
-export type Alert = { tag?: string; id: string; level: 'bad' | 'warn' | 'info'; title: string; text: string; tab: AlertTab; cta: string; dueDate?: string; action?: 'close-month' };
+export type Alert = { tag?: string; id: string; level: 'bad' | 'warn' | 'info'; title: string; text: string; tab: AlertTab; cta: string; dueDate?: string; action?: 'close-month' | 'backup' };
 
 
 export function computeAlerts(d: Data, now = new Date()): Alert[] {
   if (!d.incomes.length) return [];
   const out: Alert[] = []; const r = diagnose(d); const cal = thisMonth();
   // mês não fechado
+  // lembrete gentil de backup (só dados reais; 30 dias desde o último backup ou desde o primeiro uso)
+  const ref = d.settings.lastBackupAt ?? d.settings.firstSeenAt;
+  if (!d.isExample && d.incomes.length && ref) {
+    const days = Math.floor((Date.now() - Date.parse(ref)) / 864e5);
+    if (days > 30) out.push({ id: `backup-${d.month}`, level: 'info', title: 'Faça um backup', text: `${d.settings.lastBackupAt ? `Seu último backup foi há ${days} dias.` : 'Você ainda não fez nenhum backup.'} Seus dados ficam só neste aparelho: um backup leva segundos e protege contra troca de celular ou limpeza do navegador.`, tab: 'dados', cta: 'Fazer backup', action: 'backup' });
+  }
   if (needsClosing(d, cal)) out.push({ id: `close-${d.month}`, level: 'info', title: `Feche o mês de ${ymShort(d.month)}`, text: 'Um novo mês começou. Fechar o mês guarda sua foto financeira no histórico para você acompanhar a evolução.', tab: 'evolucao', cta: 'Fechar mês', action: 'close-month' });
   // vencimentos: 1º lembrete 3 dias corridos antes; 2º lembrete 1 dia útil antes (feriados nacionais/bancários)
   const bills = [

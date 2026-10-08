@@ -12,8 +12,8 @@ export function Bell({ count, onClick }: { count: number; onClick: () => void })
 
 const ICON = { bad: '!', warn: '!', info: 'i' };
 
-export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onCloseMonth, onClose, alertTime, onTime }: {
-  alertTime: string; onTime: (t: string) => void;
+export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onCloseMonth, onClose, alertTime, onTime, onBackup }: {
+  alertTime: string; onTime: (t: string) => void; onBackup: () => void;
   alerts: Alert[]; dismissed: string[]; onDismiss: (id: string) => void; onRestore: () => void; onGo: (t: AlertTab) => void; onCloseMonth: () => void; onClose: () => void;
 }) {
   const [notif, setNotif] = useState(notifEnabled());
@@ -36,7 +36,7 @@ export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onC
           <span className="alert-ico">{ICON[a.level]}</span>
           <div>{a.tag && <small className="alert-tag">{a.tag}</small>}<b>{a.title}</b><p>{a.text}</p>
             <div className="alert-actions">
-              {a.action === 'close-month' ? <button className="btn sm" onClick={onCloseMonth}>{a.cta}</button> : <button className="btn sm" onClick={() => onGo(a.tab)}>{a.cta} →</button>}
+              {a.action === 'close-month' ? <button className="btn sm" onClick={onCloseMonth}>{a.cta}</button> : a.action === 'backup' ? <button className="btn sm" onClick={onBackup}>{a.cta} →</button> : <button className="btn sm" onClick={() => onGo(a.tab)}>{a.cta} →</button>}
               <button className="link" onClick={() => onDismiss(a.id)}>Dispensar</button>
             </div></div>
         </motion.div>)}
@@ -56,11 +56,11 @@ export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onC
   </motion.div>;
 }
 
-export function Modal({ title, children, confirm, cancel = 'Agora não', onConfirm, onCancel }: { title: string; children: React.ReactNode; confirm: string; cancel?: string; onConfirm: () => void; onCancel: () => void }) {
+export function Modal({ title, children, confirm, cancel = 'Agora não', onConfirm, onCancel, danger }: { title: string; children: React.ReactNode; confirm: string; cancel?: string; onConfirm: () => void; onCancel: () => void; danger?: boolean }) {
   return <motion.div className="sheet-wrap center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCancel}>
     <motion.div className="modal" role="dialog" aria-modal="true" aria-label={title} initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.94, opacity: 0 }} onClick={e => e.stopPropagation()}>
       <h3>{title}</h3>{children}
-      <div className="modal-actions"><button className="btn ghost" onClick={onCancel}>{cancel}</button><button className="btn" onClick={onConfirm}>{confirm}</button></div>
+      <div className="modal-actions"><button className="btn ghost" onClick={onCancel}>{cancel}</button><button className={`btn ${danger ? 'danger' : ''}`} onClick={onConfirm}>{confirm}</button></div>
     </motion.div>
   </motion.div>;
 }

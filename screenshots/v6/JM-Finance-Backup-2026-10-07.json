@@ -1,0 +1,597 @@
+{
+  "format": "jm-finance-backup",
+  "app": "JM Finance",
+  "appVersion": "1.6.0",
+  "schemaVersion": 6,
+  "exportedAt": "2026-10-08T00:12:34.655Z",
+  "data": {
+    "incomes": [
+      {
+        "id": "0tsrgo9n",
+        "name": "Salário (empresa nova)",
+        "amount": 4200
+      },
+      {
+        "id": "hrvmyhvk",
+        "name": "Freela",
+        "amount": 1500
+      }
+    ],
+    "expenses": [
+      {
+        "id": "xwqjrc31",
+        "name": "Aluguel",
+        "amount": 1500,
+        "category": "moradia",
+        "kind": "fixa",
+        "dueDay": 10
+      },
+      {
+        "id": "amrzk4js",
+        "name": "Luz/água/internet",
+        "amount": 350,
+        "category": "moradia",
+        "kind": "fixa",
+        "dueDay": 19
+      },
+      {
+        "id": "rreo4xt6",
+        "name": "Mercado",
+        "amount": 900,
+        "category": "alimentacao",
+        "kind": "variavel"
+      },
+      {
+        "id": "p46a7tto",
+        "name": "Delivery",
+        "amount": 450,
+        "category": "alimentacao",
+        "kind": "variavel"
+      },
+      {
+        "id": "au64qy32",
+        "name": "Combustível/app",
+        "amount": 400,
+        "category": "transporte",
+        "kind": "variavel"
+      },
+      {
+        "id": "ebe5i68r",
+        "name": "Streaming e apps",
+        "amount": 120,
+        "category": "assinaturas",
+        "kind": "fixa"
+      },
+      {
+        "id": "7w6my1x1",
+        "name": "Saídas",
+        "amount": 600,
+        "category": "lazer",
+        "kind": "variavel"
+      },
+      {
+        "id": "9s4bluf2",
+        "name": "Roupas/compras online",
+        "amount": 500,
+        "category": "compras",
+        "kind": "variavel"
+      }
+    ],
+    "debts": [
+      {
+        "id": "eg2fw6el",
+        "name": "Cartão Banco X",
+        "type": "cartao_rotativo",
+        "balance": 3500,
+        "rate": 14,
+        "minPayment": 350,
+        "dueDay": 9
+      },
+      {
+        "id": "n72rm2tk",
+        "name": "Cheque especial",
+        "type": "cheque_especial",
+        "balance": 1200,
+        "rate": 8,
+        "minPayment": 150,
+        "dueDay": 16
+      },
+      {
+        "id": "qkxw83gk",
+        "name": "Empréstimo pessoal",
+        "type": "emprestimo_pessoal",
+        "balance": 6000,
+        "rate": 4.5,
+        "minPayment": 420,
+        "dueDay": 7
+      }
+    ],
+    "reserve": 800,
+    "assets": [
+      {
+        "id": "rvgbr8qv",
+        "name": "Carro (Gol 2015)",
+        "type": "veiculo",
+        "value": 32000,
+        "liquid": false
+      },
+      {
+        "id": "8a1n6717",
+        "name": "Poupança",
+        "type": "conta",
+        "value": 1500,
+        "liquid": true
+      },
+      {
+        "id": "hn28znlk",
+        "name": "Moto parada na garagem",
+        "type": "veiculo",
+        "value": 6000,
+        "liquid": false
+      }
+    ],
+    "goals": [
+      {
+        "id": "p9xni812",
+        "name": "Viagem para o Nordeste",
+        "type": "viagem",
+        "target": 6000,
+        "date": "2027-10",
+        "saved": 300,
+        "priority": "media"
+      },
+      {
+        "id": "qhb1zms5",
+        "name": "Notebook novo",
+        "type": "compra",
+        "target": 4000,
+        "date": "2027-04",
+        "saved": 0,
+        "priority": "baixa"
+      },
+      {
+        "id": "fd4gxdye",
+        "name": "Aposentadoria",
+        "type": "aposentadoria",
+        "target": 0,
+        "date": "",
+        "saved": 0,
+        "priority": "alta",
+        "retire": {
+          "monthlyIncome": 4000,
+          "age": 32,
+          "retireAge": 65,
+          "rate": 0.5
+        }
+      }
+    ],
+    "month": "2026-10",
+    "actuals": {
+      "moradia": 1850,
+      "alimentacao": 1180,
+      "transporte": 300,
+      "lazer": 640,
+      "compras": 310,
+      "assinaturas": 120
+    },
+    "history": [
+      {
+        "month": "2026-04",
+        "closedAt": 1775818343887,
+        "income": 5700,
+        "expenses": 5173,
+        "minPayments": 920,
+        "balance": -393,
+        "planned": {
+          "moradia": 1850,
+          "alimentacao": 1350,
+          "transporte": 400,
+          "assinaturas": 120,
+          "lazer": 600,
+          "compras": 500
+        },
+        "spent": {
+          "moradia": 1943,
+          "alimentacao": 1418,
+          "transporte": 420,
+          "assinaturas": 142,
+          "lazer": 660,
+          "compras": 590
+        },
+        "totalDebt": 14800,
+        "debts": [
+          {
+            "name": "Cartão Banco X",
+            "balance": 4841
+          },
+          {
+            "name": "Cheque especial",
+            "balance": 1660
+          },
+          {
+            "name": "Empréstimo pessoal",
+            "balance": 8299
+          }
+        ],
+        "totalAssets": 40300,
+        "netWorth": 25200,
+        "reserve": 2300,
+        "reserveMonths": 0.1,
+        "score": 15,
+        "level": "crítico",
+        "goals": [
+          {
+            "name": "Viagem para o Nordeste",
+            "saved": 0,
+            "target": 6000,
+            "progress": 0
+          },
+          {
+            "name": "Notebook novo",
+            "saved": 0,
+            "target": 4000,
+            "progress": 0
+          },
+          {
+            "name": "Aposentadoria",
+            "saved": 0,
+            "target": 0,
+            "progress": 0
+          }
+        ]
+      },
+      {
+        "month": "2026-05",
+        "closedAt": 1778418343887,
+        "income": 5700,
+        "expenses": 5110,
+        "minPayments": 920,
+        "balance": -330,
+        "planned": {
+          "moradia": 1850,
+          "alimentacao": 1350,
+          "transporte": 400,
+          "assinaturas": 120,
+          "lazer": 600,
+          "compras": 500
+        },
+        "spent": {
+          "moradia": 1924,
+          "alimentacao": 1404,
+          "transporte": 416,
+          "assinaturas": 130,
+          "lazer": 696,
+          "compras": 540
+        },
+        "totalDebt": 14100,
+        "debts": [
+          {
+            "name": "Cartão Banco X",
+            "balance": 4612
+          },
+          {
+            "name": "Cheque especial",
+            "balance": 1581
+          },
+          {
+            "name": "Empréstimo pessoal",
+            "balance": 7907
+          }
+        ],
+        "totalAssets": 40300,
+        "netWorth": 25900,
+        "reserve": 2300,
+        "reserveMonths": 0.1,
+        "score": 16,
+        "level": "crítico",
+        "goals": [
+          {
+            "name": "Viagem para o Nordeste",
+            "saved": 50,
+            "target": 6000,
+            "progress": 0.008333333333333333
+          },
+          {
+            "name": "Notebook novo",
+            "saved": 0,
+            "target": 4000,
+            "progress": 0
+          },
+          {
+            "name": "Aposentadoria",
+            "saved": 0,
+            "target": 0,
+            "progress": 0
+          }
+        ]
+      },
+      {
+        "month": "2026-06",
+        "closedAt": 1781018343887,
+        "income": 5700,
+        "expenses": 5052,
+        "minPayments": 920,
+        "balance": -272,
+        "planned": {
+          "moradia": 1850,
+          "alimentacao": 1350,
+          "transporte": 400,
+          "assinaturas": 120,
+          "lazer": 600,
+          "compras": 500
+        },
+        "spent": {
+          "moradia": 1906,
+          "alimentacao": 1391,
+          "transporte": 412,
+          "assinaturas": 137,
+          "lazer": 636,
+          "compras": 570
+        },
+        "totalDebt": 13300,
+        "debts": [
+          {
+            "name": "Cartão Banco X",
+            "balance": 4350
+          },
+          {
+            "name": "Cheque especial",
+            "balance": 1492
+          },
+          {
+            "name": "Empréstimo pessoal",
+            "balance": 7458
+          }
+        ],
+        "totalAssets": 40300,
+        "netWorth": 26800,
+        "reserve": 2300,
+        "reserveMonths": 0.2,
+        "score": 18,
+        "level": "crítico",
+        "goals": [
+          {
+            "name": "Viagem para o Nordeste",
+            "saved": 100,
+            "target": 6000,
+            "progress": 0.016666666666666666
+          },
+          {
+            "name": "Notebook novo",
+            "saved": 0,
+            "target": 4000,
+            "progress": 0
+          },
+          {
+            "name": "Aposentadoria",
+            "saved": 0,
+            "target": 0,
+            "progress": 0
+          }
+        ]
+      },
+      {
+        "month": "2026-07",
+        "closedAt": 1783618343887,
+        "income": 5700,
+        "expenses": 5019,
+        "minPayments": 920,
+        "balance": -239,
+        "planned": {
+          "moradia": 1850,
+          "alimentacao": 1350,
+          "transporte": 400,
+          "assinaturas": 120,
+          "lazer": 600,
+          "compras": 500
+        },
+        "spent": {
+          "moradia": 1896,
+          "alimentacao": 1384,
+          "transporte": 410,
+          "assinaturas": 126,
+          "lazer": 678,
+          "compras": 525
+        },
+        "totalDebt": 12500,
+        "debts": [
+          {
+            "name": "Cartão Banco X",
+            "balance": 4089
+          },
+          {
+            "name": "Cheque especial",
+            "balance": 1402
+          },
+          {
+            "name": "Empréstimo pessoal",
+            "balance": 7009
+          }
+        ],
+        "totalAssets": 40300,
+        "netWorth": 27700,
+        "reserve": 2300,
+        "reserveMonths": 0.3,
+        "score": 20,
+        "level": "crítico",
+        "goals": [
+          {
+            "name": "Viagem para o Nordeste",
+            "saved": 150,
+            "target": 6000,
+            "progress": 0.025000000000000005
+          },
+          {
+            "name": "Notebook novo",
+            "saved": 0,
+            "target": 4000,
+            "progress": 0
+          },
+          {
+            "name": "Aposentadoria",
+            "saved": 0,
+            "target": 0,
+            "progress": 0
+          }
+        ]
+      },
+      {
+        "month": "2026-08",
+        "closedAt": 1786218343887,
+        "income": 5700,
+        "expenses": 4960,
+        "minPayments": 920,
+        "balance": -180,
+        "planned": {
+          "moradia": 1850,
+          "alimentacao": 1350,
+          "transporte": 400,
+          "assinaturas": 120,
+          "lazer": 600,
+          "compras": 500
+        },
+        "spent": {
+          "moradia": 1878,
+          "alimentacao": 1370,
+          "transporte": 406,
+          "assinaturas": 133,
+          "lazer": 618,
+          "compras": 555
+        },
+        "totalDebt": 11700,
+        "debts": [
+          {
+            "name": "Cartão Banco X",
+            "balance": 3827
+          },
+          {
+            "name": "Cheque especial",
+            "balance": 1312
+          },
+          {
+            "name": "Empréstimo pessoal",
+            "balance": 6561
+          }
+        ],
+        "totalAssets": 40300,
+        "netWorth": 28500,
+        "reserve": 2300,
+        "reserveMonths": 0.4,
+        "score": 21,
+        "level": "crítico",
+        "goals": [
+          {
+            "name": "Viagem para o Nordeste",
+            "saved": 200,
+            "target": 6000,
+            "progress": 0.03333333333333333
+          },
+          {
+            "name": "Notebook novo",
+            "saved": 0,
+            "target": 4000,
+            "progress": 0
+          },
+          {
+            "name": "Aposentadoria",
+            "saved": 0,
+            "target": 0,
+            "progress": 0
+          }
+        ]
+      },
+      {
+        "month": "2026-09",
+        "closedAt": 1788818343887,
+        "income": 5700,
+        "expenses": 4929,
+        "minPayments": 920,
+        "balance": -149,
+        "planned": {
+          "moradia": 1850,
+          "alimentacao": 1350,
+          "transporte": 400,
+          "assinaturas": 120,
+          "lazer": 600,
+          "compras": 500
+        },
+        "spent": {
+          "moradia": 1869,
+          "alimentacao": 1364,
+          "transporte": 404,
+          "assinaturas": 122,
+          "lazer": 660,
+          "compras": 510
+        },
+        "totalDebt": 11100,
+        "debts": [
+          {
+            "name": "Cartão Banco X",
+            "balance": 3631
+          },
+          {
+            "name": "Cheque especial",
+            "balance": 1245
+          },
+          {
+            "name": "Empréstimo pessoal",
+            "balance": 6224
+          }
+        ],
+        "totalAssets": 40300,
+        "netWorth": 29100,
+        "reserve": 2300,
+        "reserveMonths": 0.4,
+        "score": 22,
+        "level": "crítico",
+        "goals": [
+          {
+            "name": "Viagem para o Nordeste",
+            "saved": 250,
+            "target": 6000,
+            "progress": 0.041666666666666664
+          },
+          {
+            "name": "Notebook novo",
+            "saved": 0,
+            "target": 4000,
+            "progress": 0
+          },
+          {
+            "name": "Aposentadoria",
+            "saved": 0,
+            "target": 0,
+            "progress": 0
+          }
+        ]
+      }
+    ],
+    "dismissedAlerts": [],
+    "settings": {
+      "alertTime": "09:00",
+      "firstSeenAt": "2026-08-29T00:12:28.348Z"
+    },
+    "isExample": false
+  },
+  "chat": [
+    {
+      "id": "4tp4uj07",
+      "role": "user",
+      "content": "Como sair do vermelho?",
+      "at": 1791418345672
+    },
+    {
+      "id": "axo4sna8",
+      "role": "assistant",
+      "content": "Sua nota é 24/100 (crítico). Você compromete 101% da renda e faltam R$ 40,00 por mês.\n\nCortes que mais ajudam: Assinaturas (R$ 120,00 → R$ 112,00); Lazer (R$ 600,00 → R$ 561,00); Compras (R$ 500,00 → R$ 467,00).\n\nO caminho sugerido no seu plano:\n1. Estanque o sangramento\n2. Ajuste o orçamento (regra 50/20/30 (modo recuperação))\n3. Renegocie as dívidas mais caras\n4. Opção: use patrimônio para matar dívidas caras\n5. Quite as dívidas em ordem\n\nAlternativas para acelerar:\n• Aumentar renda (freelas, vender o que não usa). ✅ Resolve mais rápido. ❌ Exige tempo/energia.\n• Renegociar dívidas. ✅ Reduz parcelas. ⚠️ Pode alongar o prazo.\n\nA decisão é sua — eu só mostro os caminhos e o que os números indicam.",
+      "actions": [
+        {
+          "type": "open_sim",
+          "label": "Simular: cortar um gasto",
+          "sim": "cortar"
+        }
+      ],
+      "at": 1791418346774
+    }
+  ]
+}
