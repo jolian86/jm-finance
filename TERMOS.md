@@ -2,7 +2,7 @@
 
 **Versão 1.0** · atualizada em 7 de outubro de 2026
 
-> **RASCUNHO — pendente de revisão jurídica.** Contato: jolian.araujo@icloud.com. Placeholder a preencher: `[nome do responsável pela JM Finance]`.
+> **RASCUNHO — pendente de revisão jurídica.** Responsável: Jolian Marco Costa de Araújo (pessoa física). Contato: jolian.araujo@icloud.com.
 > Fonte única do texto: `src/terms.ts` (este arquivo é gerado por `node scripts/terms-md.mjs`). Ao alterar o texto, aumente `TERMS_VERSION` para o app pedir novo aceite.
 
 ## Termos de Uso
@@ -106,7 +106,7 @@ A Lei Geral de Proteção de Dados (Lei nº 13.709/2018) garante a você, entre 
 
 Como os dados ficam só com você, a maior parte desses direitos pode ser exercida diretamente no app: ver e corrigir em "Meus dados", levar para outro aparelho com "Exportar backup" e apagar tudo quando quiser. Para qualquer pedido ou dúvida, fale com jolian.araujo@icloud.com. Você também pode procurar a Autoridade Nacional de Proteção de Dados (ANPD).
 
-Responsável (controlador): [nome do responsável pela JM Finance].
+Responsável (controlador): Jolian Marco Costa de Araújo (pessoa física).
 
 ### 10. Mudanças nesta política
 

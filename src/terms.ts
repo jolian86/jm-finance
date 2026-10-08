@@ -2,7 +2,7 @@
  * TERMOS DE USO e POLÍTICA DE PRIVACIDADE da JM Finance.
  * ⚠️ RASCUNHO — PENDENTE DE REVISÃO JURÍDICA. Texto redigido para ser claro ao usuário;
  * deve ser revisado por advogado(a) antes de uso comercial / publicação nas lojas.
- * Placeholder a preencher: [nome do responsável pela JM Finance]. Contato: jolian.araujo@icloud.com.
+ * Responsável: Jolian Marco Costa de Araújo (pessoa física). Contato: jolian.araujo@icloud.com.
  * Ao mudar qualquer texto com efeito jurídico, aumente TERMS_VERSION: o app pedirá novo aceite.
  * TERMOS.md (raiz do repositório) é gerado a partir deste arquivo: `node scripts/terms-md.mjs`.
  */
@@ -10,7 +10,7 @@ export const TERMS_VERSION = '1.0';
 export const TERMS_UPDATED = '7 de outubro de 2026';
 export const TERMS_DRAFT = true;
 export const CONTACT = 'jolian.araujo@icloud.com';
-export const CONTROLLER = '[nome do responsável pela JM Finance]';
+export const CONTROLLER = 'Jolian Marco Costa de Araújo (pessoa física)';
 
 export type Block = { h: string; p?: string[]; ul?: string[] };
 
