@@ -4,6 +4,8 @@ import Chat from './Chat';
 import Evolucao from './Evolucao';
 import Simulador from './Simulador';
 import Backup from './Backup';
+import { ReceivablesCard, ForecastCard, VarIncome, ModeToggle } from './Receivables';
+import { varStats } from './finance';
 import { Welcome, TermsSheet, deleteAllData } from './Terms';
 import { TERMS_VERSION, hasAccepted } from './terms';
 import type { SimId } from './sim';
@@ -22,6 +24,7 @@ const brl0 = (n: number) => brl(Math.round(n));
 
 function load(): Data { try { return migrate(JSON.parse(localStorage.getItem(KEY) || '')) } catch { return emptyData() } }
 const Disc = () => <p className="jm-disc">{DISCLAIMER}</p>;
+const scrollToId = (id: string) => setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 450);
 function ExportBtn({ data }: { data: Data }) {
   const [st, setSt] = useState<'idle' | 'busy' | 'done' | 'err'>('idle');
   const run = async () => {
@@ -40,6 +43,8 @@ export default function App() {
   useEffect(() => localStorage.setItem(KEY, JSON.stringify(data)), [data]);
   const upd = (p: Partial<Data>) => setData(d => ({ ...d, ...p, isExample: p.isExample ?? d.isExample }));
   const hasData = data.incomes.length > 0;
+  // trocar os dados (exemplo / limpar) mantém aceite dos termos e preferências do aparelho
+  const replaceData = (nd: Data) => setData(prev => ({ ...nd, settings: { ...nd.settings, terms: prev.settings.terms, alertTime: prev.settings.alertTime, firstSeenAt: prev.settings.firstSeenAt, lastBackupAt: prev.settings.lastBackupAt, recvMode: prev.settings.recvMode } }));
   const [chat, setChat] = useState(() => new URLSearchParams(location.search).get('chat') === '1');
   const [splash, setSplash] = useState(() => !sessionStorage.getItem('jm:splash') && !new URLSearchParams(location.search).has('nosplash'));
   const q0 = new URLSearchParams(location.search).get('tab');
@@ -71,15 +76,15 @@ export default function App() {
       <main>
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={setData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
-            {tab === 'dados' && <><Inputs data={data} upd={upd} setData={setData} onCloseMonth={() => setAskClose(true)} /><Backup data={data} setData={setData} />
+            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={replaceData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
+            {tab === 'dados' && <><Inputs data={data} upd={upd} setData={replaceData} onCloseMonth={() => setAskClose(true)} /><Backup data={data} setData={setData} />
               <p className="terms-foot"><button className="link" onClick={() => setTermsOpen(true)}>Termos e privacidade</button>{acceptedOn && <> · aceitos em {acceptedOn} (versão {data.settings.terms!.version})</>}</p></>}
             {tab === 'diagnostico' && (hasData ? <>
               <ExportBtn data={data} />
               <div className="seg" role="tablist">{(['hoje', 'evolucao'] as const).map(v => <button key={v} role="tab" aria-selected={diagView === v} className={diagView === v ? 'on' : ''} onClick={() => setDiagView(v)}>
                 {diagView === v && <motion.span layoutId="segpill" className="segpill" />}<span>{v === 'hoje' ? 'Hoje' : 'Evolução'}</span></button>)}</div>
               {diagView === 'hoje' ? <Diagnosis data={data} /> : <Evolucao data={data} onCloseMonth={() => setAskClose(true)} />}</> : <Empty go={go} />)}
-            {tab === 'plano' && (hasData ? <Plan data={data} openSim={() => openSim()} /> : <Empty go={go} />)}
+            {tab === 'plano' && (hasData ? <Plan data={data} openSim={() => openSim()} upd={upd} goForecast={() => { go('dados'); scrollToId('previsao'); }} /> : <Empty go={go} />)}
             {tab === 'simulador' && (hasData ? <Simulador data={data} upd={upd} initial={simId} onBack={() => go('plano')} goGoals={() => go('objetivos')} /> : <Empty go={go} />)}
             {tab === 'objetivos' && <Goals data={data} upd={upd} />}
           </motion.div>
@@ -90,7 +95,7 @@ export default function App() {
       <AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={() => setChat(false)} goGoals={() => { setChat(false); go('objetivos'); }} openSim={s => openSim(s)} />}</AnimatePresence>
       <AnimatePresence>{alertsOpen && <AlertsPanel alerts={alerts} dismissed={data.dismissedAlerts}
         onDismiss={id => upd({ dismissedAlerts: [...data.dismissedAlerts, id] })} onRestore={() => upd({ dismissedAlerts: [] })}
-        onGo={t => { setAlertsOpen(false); go(t); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)}
+        onGo={(t, anchor) => { setAlertsOpen(false); go(t); if (anchor) scrollToId(anchor); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)}
         onBackup={() => { setAlertsOpen(false); go('dados'); setTimeout(() => document.getElementById('backup')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 450); }}
         alertTime={data.settings.alertTime} onTime={t => upd({ settings: { ...data.settings, alertTime: t } })} />}</AnimatePresence>
       <AnimatePresence>{(askClose || newMonthPrompt) && <Modal title={newMonthPrompt && !askClose ? 'Começou um novo mês!' : `Fechar ${ymLong(data.month)}?`} confirm="Fechar mês"
@@ -179,12 +184,17 @@ function Inputs({ data, upd, setData, onCloseMonth }: { data: Data; upd: (p: Par
       <button className={`btn sm ${needsClosing(data, thisMonth()) ? '' : 'ghost'}`} onClick={onCloseMonth}>Fechar mês</button></div>
     {data.isExample && <div className="card ex">Você está vendo <b>dados de exemplo fictícios</b>. Edite ou <button className="link" onClick={() => setData(emptyData())}>limpe tudo</button> para usar os seus.</div>}
     <div className="card"><h3>Rendas mensais</h3>
-      {data.incomes.map(i => <div className="row" key={i.id}>
-        <input value={i.name} onChange={e => mark({ incomes: data.incomes.map(x => x.id === i.id ? { ...x, name: e.target.value } : x) })} />
-        <input type="number" inputMode="decimal" value={i.amount || ''} placeholder="R$" onChange={e => mark({ incomes: data.incomes.map(x => x.id === i.id ? { ...x, amount: num(e.target.value) } : x) })} />
-        <button className="x" onClick={() => mark({ incomes: data.incomes.filter(x => x.id !== i.id) })}>✕</button></div>)}
+      {data.incomes.map(i => { const setI = (ni: typeof i) => mark({ incomes: data.incomes.map(x => x.id === i.id ? ni : x) }); const vs = i.variable ? varStats(i.history ?? []) : null;
+        return <div className="income" key={i.id}><div className="row">
+        <input value={i.name} onChange={e => setI({ ...i, name: e.target.value })} />
+        <input type="number" inputMode="decimal" value={i.amount || ''} placeholder="R$" readOnly={!!vs?.ok} title={vs?.ok ? 'Base conservadora calculada pelos últimos meses' : undefined} className={vs?.ok ? 'derived' : ''} onChange={e => setI({ ...i, amount: num(e.target.value) })} />
+        <button className="x" onClick={() => mark({ incomes: data.incomes.filter(x => x.id !== i.id) })}>✕</button></div>
+        <label className="chk-line var-toggle"><input type="checkbox" checked={!!i.variable} onChange={e => setI(e.target.checked ? { ...i, variable: true, history: i.history?.length ? i.history : [i.amount, i.amount, i.amount] } : { ...i, variable: false })} />Renda variável (comissão, plantões, freelas…)</label>
+        {i.variable && <VarIncome income={i} month={data.month} onChange={setI} />}</div>; })}
       <button className="btn ghost" onClick={() => mark({ incomes: [...data.incomes, { id: uid(), name: 'Salário', amount: 0 }] })}>+ Adicionar renda</button>
     </div>
+    <ReceivablesCard data={data} upd={upd} />
+    <ForecastCard data={data} upd={upd} />
     <div className="card"><h3>Gastos mensais</h3>
       {data.expenses.map(i => <div className="row wrap" key={i.id}>
         <input value={i.name} onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, name: e.target.value } : x) })} />
@@ -280,7 +290,7 @@ function Diagnosis({ data }: { data: Data }) {
   </>;
 }
 
-function Plan({ data, openSim }: { data: Data; openSim: () => void }) {
+function Plan({ data, openSim, upd, goForecast }: { data: Data; openSim: () => void; upd: (p: Partial<Data>) => void; goForecast: () => void }) {
   const p = useMemo(() => actionPlan(data), [data]);
   const line = p.payoff ? p.payoff.av.timeline.map((t, i) => ({ mes: t.mes, Avalanche: Math.round(t.saldo), 'Bola de neve': Math.round(p.payoff!.sb.timeline[i]?.saldo ?? 0) })) : [];
   return <>
@@ -288,7 +298,9 @@ function Plan({ data, openSim }: { data: Data; openSim: () => void }) {
     <motion.button className="card sim-item" onClick={openSim} whileTap={{ scale: 0.98 }}><span className="sim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 18V9M10 18V5M16 18v-6M22 18H2" /></svg></span>
       <span><b>Simulador de decisões</b><small>Financiar ou juntar? Quitar ou investir? Antecipar, consolidar, cortar um gasto — compare lado a lado.</small></span><span className="sim-go">›</span></motion.button>
     {p.steps.map((s, i) => <motion.div className="card step" key={i} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.4, delay: Math.min(i, 3) * 0.05 }}><div className="n">{i + 1}</div><div><h3>{s.title}</h3><p>{s.text}</p>
-      {s.items && <ul>{s.items.map((x, j) => <li key={j}>{x}</li>)}</ul>}<Disc /></div></motion.div>)}
+      {s.items && <ul>{s.items.map((x, j) => <li key={j}>{x}</li>)}</ul>}
+      {s.id === 'recv' && <div className="recv-step"><ModeToggle mode={data.settings.recvMode === 'garantido' ? 'garantido' : 'ponderado'} onChange={m => upd({ settings: { ...data.settings, recvMode: m } })} />
+        <button className="link" onClick={goForecast}>Ver previsão de recebimentos →</button></div>}<Disc /></div></motion.div>)}
     {p.payoff && <div className="card"><h3>Projeção de quitação das dívidas</h3>
       <p className="hint">Saldo devedor total mês a mês, com {brl(p.payoff.budget)}/mês para dívidas.</p>
       <ResponsiveContainer width="100%" height={240}><LineChart data={line}><CartesianGrid strokeDasharray="3 3" stroke="rgba(247,183,49,.08)" /><XAxis dataKey="mes" {...AX} /><YAxis width={58} {...AXY} />
@@ -319,7 +331,7 @@ function Goals({ data, upd }: { data: Data; upd: (p: Partial<Data>) => void }) {
       {ev.hasExpensive && <div className="finding bad"><b>Atenção: você tem dívidas caras</b><p>Enquanto existirem dívidas como rotativo ou cheque especial, a prioridade é quitá-las — os juros delas crescem mais rápido do que qualquer objetivo. Por isso só 20% da sua sobra é considerada para objetivos agora.</p></div>}
       {!ev.hasExpensive && ev.hasDebts && <div className="finding warn"><b>Dívidas primeiro</b><p>Enquanto quita as dívidas, 80% da sobra vai para elas e 20% para objetivos.</p></div>}
       <Disc /></div>
-    {ev.results.map(({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt }) => <div className="card goal" key={g.id}>
+    {ev.results.map(({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt, lump }) => <div className="card goal" key={g.id}>
       <div className="goal-head"><ProgressRing value={progress} label={`Progresso ${pct(progress)}`} />
         <div><b className="goal-name">{g.name || 'Objetivo'}</b><small>{brl(g.saved)} de {brl(target)}</small>
           <span className={`pill ${fits ? 'ok' : 'warn'}`}>{fits ? 'Cabe no orçamento' : 'Não cabe hoje'}</span></div></div>
@@ -344,6 +356,7 @@ function Goals({ data, upd }: { data: Data; upd: (p: Partial<Data>) => void }) {
       <div className={`finding ${fits ? 'good' : 'warn'}`}>
         {g.type === 'aposentadoria' && g.retire && <p>Para viver de {brl(g.retire.monthlyIncome)}/mês (valores de hoje) você precisa juntar cerca de <b>{brl(target)}</b> até os {g.retire.retireAge} anos ({Math.round(months / 12)} anos).</p>}
         <b>Guardar {brl(need)}/mês {g.type !== 'aposentadoria' && `por ${months} meses`}</b>
+        {lump > 0 && <p className="lump-note">Já considera {brl(Math.round(lump))} de receitas futuras ({data.settings.recvMode === 'garantido' ? 'garantidas' : 'valor ponderado'}) até a data. Só conte com elas quando o dinheiro cair.</p>}
         <p>{fits ? '✅ Cabe no seu orçamento livre atual.' : `⚠️ Não cabe agora: sobram ${brl(allocated)}/mês para este objetivo (pela ordem de prioridade).`}</p>
         {alt && <ul>
           {g.type === 'aposentadoria'

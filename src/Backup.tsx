@@ -70,6 +70,7 @@ export default function Backup({ data, setData }: { data: Data; setData: (d: Dat
         <li><span>Histórico</span><b>{p.history.length ? plural(p.history.length, 'mês fechado', 'meses fechados') : 'nenhum mês fechado'}</b></li>
         <li><span>Objetivos</span><b>{p.goals.length}</b></li>
         <li><span>Dívidas</span><b>{p.debts.length}{p.debts.length ? ` (${brl(Math.round(totalDebt))})` : ''}</b></li>
+        <li><span>Receitas futuras</span><b>{p.receivables.length}</b></li>
         <li><span>Rendas · gastos · bens</span><b>{p.incomes.length} · {p.expenses.length} · {p.assets.length}</b></li>
         <li><span>Conversa com o Consultor</span><b>{preview.chat?.length ? plural(preview.chat.length, 'mensagem', 'mensagens') : 'não incluída'}</b></li>
         <li><span>Termos aceitos</span><b>{p.settings.terms ? `versão ${p.settings.terms.version} em ${fmtDate(p.settings.terms.acceptedAt)}` : 'não registrado'}</b></li>

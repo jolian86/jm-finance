@@ -1,4 +1,6 @@
-export type Income = { id: string; name: string; amount: number };
+import { Receivable, RecvMode, cleanReceivables, exampleReceivables, planLumps, forecast, lumpSentence, modeValue, Lump } from './recv';
+/** variable: renda variável; history: valores dos últimos meses (mais antigo → mais recente). Com 3+ meses, amount = base conservadora. */
+export type Income = { id: string; name: string; amount: number; variable?: boolean; history?: number[] };
 export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel'; dueDay?: number };
 export type DebtType = 'cartao_rotativo' | 'cheque_especial' | 'emprestimo_pessoal' | 'consignado' | 'financiamento' | 'outro';
 export type Debt = { id: string; name: string; type: DebtType; balance: number; rate: number; minPayment: number; dueDay?: number };
@@ -26,11 +28,13 @@ export type Data = {
   dismissedAlerts: string[];
   /** preferências (o horário de alertas será usado também por um futuro servidor de push) */
   settings: Settings;
+  /** receitas futuras / recebíveis (13º, PLR, honorários, notas, safra...) */
+  receivables: Receivable[];
 };
 /** Versão do formato dos dados (sobe quando o formato muda; dados antigos passam por migrate). */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 /** terms: aceite dos Termos de Uso/Política de Privacidade (versão + data/hora ISO). */
-export type Settings = { alertTime: string; firstSeenAt?: string; lastBackupAt?: string; terms?: { version: string; acceptedAt: string } };
+export type Settings = { alertTime: string; firstSeenAt?: string; lastBackupAt?: string; terms?: { version: string; acceptedAt: string }; recvMode?: RecvMode };
 export const DEFAULT_SETTINGS: Settings = { alertTime: '09:00' };
 export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'outros';
 
@@ -63,7 +67,7 @@ export const pct = (n: number) => `${(n * 100).toLocaleString('pt-BR', { maximum
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
-export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [], month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS } });
+export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [], month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS }, receivables: [] });
 const isoOk = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
 // Migra dados antigos (sem assets/goals) sem quebrar
 export function migrate(raw: unknown): Data {
@@ -71,7 +75,7 @@ export function migrate(raw: unknown): Data {
   const arr = <T,>(v: unknown) => (Array.isArray(v) ? v as T[] : []);
   return {
     ...emptyData(), ...d,
-    incomes: arr<Income>(d.incomes), expenses: arr<Expense>(d.expenses), debts: arr<Debt>(d.debts),
+    incomes: arr<Income>(d.incomes).map(i => ({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable })), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses), debts: arr<Debt>(d.debts),
     assets: arr<Asset>(d.assets), goals: arr<Goal>(d.goals), reserve: Number(d.reserve) || 0,
     month: typeof d.month === 'string' && /^\d{4}-\d{2}$/.test(d.month) ? d.month : thisMonth(),
     actuals: d.actuals && typeof d.actuals === 'object' ? d.actuals : {},
@@ -79,14 +83,16 @@ export function migrate(raw: unknown): Data {
     dismissedAlerts: arr<string>(d.dismissedAlerts),
     settings: { ...DEFAULT_SETTINGS, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}), alertTime: /^\d{2}:\d{2}$/.test(String(d.settings?.alertTime)) ? String(d.settings!.alertTime) : DEFAULT_SETTINGS.alertTime,
       firstSeenAt: isoOk(d.settings?.firstSeenAt) ? d.settings!.firstSeenAt : new Date().toISOString(), lastBackupAt: isoOk(d.settings?.lastBackupAt) ? d.settings!.lastBackupAt : undefined,
-      terms: d.settings?.terms && typeof d.settings.terms.version === 'string' && isoOk(d.settings.terms.acceptedAt) ? { version: d.settings.terms.version, acceptedAt: d.settings.terms.acceptedAt } : undefined },
+      terms: d.settings?.terms && typeof d.settings.terms.version === 'string' && isoOk(d.settings.terms.acceptedAt) ? { version: d.settings.terms.version, acceptedAt: d.settings.terms.acceptedAt } : undefined,
+      recvMode: d.settings?.recvMode === 'garantido' ? 'garantido' : 'ponderado' },
   };
 }
 const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMonth() + monthsAhead); return t.toISOString().slice(0, 7); };
 export const exampleData = (): Data => ({
   isExample: true, month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS },
   reserve: 800,
-  incomes: [{ id: uid(), name: 'Salário', amount: 4200 }, { id: uid(), name: 'Freela', amount: 1500 }],
+  incomes: [{ id: uid(), name: 'Salário', amount: 4200 }, { id: uid(), name: 'Freelas (variável)', amount: varStats([1500, 1300, 1800, 1200, 1600, 1250]).base, variable: true, history: [1500, 1300, 1800, 1200, 1600, 1250] }],
+  receivables: exampleReceivables(4200),
   expenses: [
     { id: uid(), name: 'Aluguel', amount: 1500, category: 'moradia', kind: 'fixa' },
     { id: uid(), name: 'Luz/água/internet', amount: 350, category: 'moradia', kind: 'fixa' },
@@ -185,7 +191,8 @@ export function order(debts: Debt[], s: Strategy) {
   return [...debts].sort((a, b) => s === 'avalanche' ? b.rate - a.rate : a.balance - b.balance);
 }
 
-export function simulate(debts: Debt[], s: Strategy, budget: number) {
+/** extra[m]: dinheiro a mais no mês m (ex.: PLR, 13º) usado para abater dívidas na ordem da estratégia. */
+export function simulate(debts: Debt[], s: Strategy, budget: number, extra?: Record<number, number>) {
   let ds = order(debts, s).map(x => ({ ...x }));
   const payoff: Record<string, number> = {};
   const timeline: { mes: number; saldo: number }[] = [{ mes: 0, saldo: ds.reduce((a, x) => a + x.balance, 0) }];
@@ -195,7 +202,7 @@ export function simulate(debts: Debt[], s: Strategy, budget: number) {
   while (ds.some(x => x.balance > 0.01) && m < 120) {
     m++;
     ds.forEach(x => { if (x.balance > 0) { const i = x.balance * x.rate / 100; interest += i; x.balance += i; } });
-    let avail = budget;
+    let avail = budget + (extra?.[m] ?? 0);
     ds.forEach(x => { if (x.balance > 0) { const p = Math.min(x.minPayment, x.balance); x.balance -= p; avail -= p; } });
     for (const x of ds) { if (avail <= 0) break; if (x.balance > 0) { const p = Math.min(avail, x.balance); x.balance -= p; avail -= p; } }
     ds.forEach(x => { if (x.balance <= 0.01 && !payoff[x.id]) payoff[x.id] = m; });
@@ -204,7 +211,7 @@ export function simulate(debts: Debt[], s: Strategy, budget: number) {
   return { months: m, interest, payoff, timeline, feasible: !ds.some(x => x.balance > 0.01) };
 }
 
-export type Step = { title: string; text: string; items?: string[] };
+export type Step = { title: string; text: string; items?: string[]; id?: string };
 export function actionPlan(d: Data) {
   const r = diagnose(d);
   const steps: Step[] = [];
@@ -260,13 +267,22 @@ export function actionPlan(d: Data) {
   }
   if (r.effReserve < reserveTarget1 * 0.5 && d.debts.length) steps.push({
     title: 'Monte uma mini-reserva', text: `Separe ${brl(Math.min(1000, reserveTarget1 * 0.5))} para imprevistos antes de acelerar as dívidas — assim um pneu furado não vira novo rotativo. Guarde em conta que renda 100% do CDI com liquidez diária.` });
-  let payoff = null as null | { budget: number; av: ReturnType<typeof simulate>; sb: ReturnType<typeof simulate> };
+  // receitas futuras: cada valor vai para dívida cara → reserva → objetivos (frases com o valor cheio; projeção com o valor do modo)
+  const recv = recvPlan(d, r);
+  if (recv.lumpsFull.length) steps.push({ id: 'recv', title: 'Use as receitas futuras com estratégia',
+    text: `Nos próximos 12 meses você espera ${brl(Math.round(recv.fc.expected))} (${brl(Math.round(recv.fc.weighted))} ponderado pela chance de receber; ${brl(Math.round(recv.fc.guaranteed))} garantido). O plano e as projeções usam ${recv.mode === 'garantido' ? 'só o valor garantido' : 'o valor ponderado'}. Ordem sugerida para cada valor: dívida cara → reserva de emergência (1º mês de custos) → objetivos.`,
+    items: [
+      ...recv.lumpsFull.filter(l => l.occ.recv.recurrence !== 'monthly').slice(0, 6).map(l => lumpSentence(l)),
+      ...(recv.lumpsFull.some(l => l.occ.recv.recurrence === 'monthly') ? ['Recebimentos mensais (comissões, repasses, aluguel) entram como reforço mês a mês, na mesma ordem.'] : []),
+      '⚠️ Nunca gaste dinheiro incerto antes de ele cair na conta: não assuma parcelas nem compras contando com um valor provável ou incerto.',
+    ] });
+  let payoff = null as null | { budget: number; av: ReturnType<typeof simulate>; sb: ReturnType<typeof simulate>; extraTotal: number };
   if (d.debts.length) {
     const budget = r.minPayments + surplus * 0.8;
-    const av = simulate(d.debts, 'avalanche', budget), sb = simulate(d.debts, 'snowball', budget);
-    payoff = { budget, av, sb };
+    const av = simulate(d.debts, 'avalanche', budget, recv.debtExtra), sb = simulate(d.debts, 'snowball', budget, recv.debtExtra);
+    payoff = { budget, av, sb, extraTotal: recv.debtExtraTotal };
     steps.push({
-      title: 'Quite as dívidas em ordem', text: `Pague o mínimo em todas e direcione ${brl(budget - r.minPayments)} extras/mês para uma dívida por vez (orçamento total para dívidas: ${brl(budget)}/mês).`,
+      title: 'Quite as dívidas em ordem', text: `Pague o mínimo em todas e direcione ${brl(budget - r.minPayments)} extras/mês para uma dívida por vez (orçamento total para dívidas: ${brl(budget)}/mês)${recv.debtExtraTotal > 0 ? `, mais ${brl(Math.round(recv.debtExtraTotal))} de receitas futuras (${recv.mode === 'garantido' ? 'só garantidas' : 'valor ponderado'}) nos meses previstos` : ''}.`,
       items: [
         `Avalanche (maior juro primeiro): ${av.feasible ? `${av.months} meses, ${brl(av.interest)} em juros` : 'não quita com o orçamento atual'}. Ordem: ${order(d.debts, 'avalanche').map(x => x.name).join(' → ')}.`,
         `Bola de neve (menor saldo primeiro): ${sb.feasible ? `${sb.months} meses, ${brl(sb.interest)} em juros` : 'não quita com o orçamento atual'}. Ordem: ${order(d.debts, 'snowball').map(x => x.name).join(' → ')}.`,
@@ -279,7 +295,34 @@ export function actionPlan(d: Data) {
   steps.push({ title: 'Próximo nível', text: 'Com dívidas quitadas e reserva pronta: invista para objetivos (Tesouro Direto, CDBs), revise o orçamento a cada 3 meses e busque aumentar a renda.' });
   // Orçamento livre para objetivos: com dívidas, 80% da sobra vai para elas
   const freeForGoals = d.debts.length ? surplus * 0.2 : surplus;
-  return { steps, cuts, savings, guide, payoff, surplus, freeForGoals };
+  return { steps, cuts, savings, guide, payoff, surplus, freeForGoals, recv };
+}
+
+/** Receitas futuras no plano: frases (valor cheio) e projeção (valor ponderado ou só garantido). */
+export function recvPlan(d: Data, r: ReturnType<typeof diagnose>, today = new Date()) {
+  const mode: RecvMode = d.settings?.recvMode === 'garantido' ? 'garantido' : 'ponderado';
+  const base = r.essentials + r.minPayments;
+  const ctx = { expensiveIds: new Set(r.expensive.map(x => x.id)), reserveGap1: base - r.effReserve, reserveGap6: base * 6 - r.effReserve };
+  const recvs = d.receivables || [];
+  const lumpsFull: Lump[] = recvs.length ? planLumps(d, ctx, o => o.net, today) : [];
+  const lumpsMode: Lump[] = recvs.length ? planLumps(d, ctx, o => modeValue(o, mode), today) : [];
+  const debtExtra: Record<number, number> = {}; let debtExtraTotal = 0;
+  const goalLump: Record<string, number> = {};
+  for (const l of lumpsMode) for (const p of l.parts) {
+    if (p.kind === 'debt') { debtExtra[l.month + 1] = (debtExtra[l.month + 1] || 0) + p.amount; debtExtraTotal += p.amount; }
+    if (p.kind === 'goal') goalLump[p.id] = (goalLump[p.id] || 0) + p.amount;
+  }
+  return { mode, lumpsFull, lumpsMode, debtExtra, debtExtraTotal, goalLump, fc: forecast(d, today) };
+}
+
+/** Renda variável: base conservadora = média dos meses mais fracos (1/3 menores). */
+export function varStats(values: number[]) {
+  const v = values.map(Number).filter(x => x > 0); const n = v.length;
+  if (n < 3) return { n, ok: false, avg: 0, min: 0, max: 0, base: 0, cv: 0, k: 0, label: '' };
+  const sorted = [...v].sort((a, b) => a - b); const k = Math.ceil(n / 3);
+  const avg = v.reduce((s, x) => s + x, 0) / n; const base = Math.round(sorted.slice(0, k).reduce((s, x) => s + x, 0) / k);
+  const sd = Math.sqrt(v.reduce((s, x) => s + (x - avg) ** 2, 0) / n); const cv = avg ? sd / avg : 0;
+  return { n, ok: true, avg, min: sorted[0], max: sorted[n - 1], base, cv, k, label: cv < 0.15 ? 'baixa' : cv < 0.35 ? 'média' : 'alta' };
 }
 
 // ---------- Objetivos ----------
@@ -296,11 +339,11 @@ export function retirementCalc(r: Retire, saved: number) {
   const monthly = Math.max(0, (capital - fv) * i / (Math.pow(1 + i, n) - 1));
   return { capital, monthly, months: n };
 }
-export type GoalResult = { goal: Goal; target: number; months: number; need: number; allocated: number; allocatedAfter: number; fits: boolean; progress: number;
+export type GoalResult = { goal: Goal; target: number; months: number; need: number; allocated: number; allocatedAfter: number; fits: boolean; progress: number; lump: number;
   alt?: { extendTo: string; extendMonths: number; reduceTo: number; cut: number } };
 const PR: Record<Priority, number> = { alta: 0, media: 1, baixa: 2 };
 export function evaluateGoals(d: Data) {
-  const plan = actionPlan(d); const r = diagnose(d);
+  const plan = actionPlan(d); const r = diagnose(d); const goalLump = plan.recv.goalLump;
   const payoffMonths = plan.payoff ? (plan.payoff.av.feasible ? plan.payoff.av.months : null) : 0;
   // depois de quitar as dívidas, o dinheiro das parcelas fica livre
   const freeAfter = d.debts.length ? plan.surplus + r.minPayments : plan.freeForGoals;
@@ -311,14 +354,14 @@ export function evaluateGoals(d: Data) {
     let target = g.target, months = monthsUntil(g.date), need: number;
     if (g.type === 'aposentadoria' && g.retire) {
       const rc = retirementCalc(g.retire, g.saved); target = rc.capital; months = rc.months; need = rc.monthly;
-    } else need = Math.max(0, target - g.saved) / Math.max(1, months);
+    } else need = Math.max(0, target - g.saved - (goalLump[g.id] || 0)) / Math.max(1, months);
     const allocated = Math.min(need, Math.max(0, avail)); avail -= allocated;
     const allocatedAfter = Math.min(Math.max(need, allocated), Math.max(0, availAfter)); availAfter -= allocatedAfter;
     const fits = need <= allocated + 0.5;
     const progress = target ? Math.min(1, g.saved / target) : 0;
     let alt: GoalResult['alt'];
     if (!fits) {
-      const remaining = Math.max(0, target - g.saved);
+      const remaining = Math.max(0, target - g.saved - (goalLump[g.id] || 0));
       // meses até completar: "allocated" durante as dívidas, "allocatedAfter" depois
       let extendMonths = 0;
       if (payoffMonths !== null) {
@@ -329,7 +372,7 @@ export function evaluateGoals(d: Data) {
       if (extendMonths > 600) extendMonths = 0;
       alt = { extendMonths, extendTo: extendMonths ? ym(extendMonths) : '', reduceTo: g.type === 'aposentadoria' && g.retire ? Math.max(0, allocated / need * g.retire.monthlyIncome) : g.saved + allocated * months, cut: need - allocated };
     }
-    results.push({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt });
+    results.push({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt, lump: goalLump[g.id] || 0 });
   }
   return { results, free: plan.freeForGoals, freeAfter, payoffMonths, hasExpensive: r.expensive.length > 0, hasDebts: d.debts.length > 0, surplus: plan.surplus };
 }

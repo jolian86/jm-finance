@@ -21,6 +21,10 @@ export type FinancialSummary = {
   surplusAfterCuts: number; freeForGoals: number; freeAfterDebts: number; suggestedCuts: { name: string; current: number; suggested: number }[];
   goals: { name: string; type: string; target: number; saved: number; monthsLeft: number; monthlyNeed: number; fits: boolean; priority: string }[];
   planSteps: string[];
+  /** receitas futuras (12 meses): totais, modo usado no plano e frases de uso sugerido */
+  receivables: { count: number; expected: number; weighted: number; guaranteed: number; mode: string; overdue: number;
+    upcoming: { name: string; type: string; when: string; net: number; certainty: string; prob: number }[]; uses: { type: string; text: string }[] };
+  variableIncome: { name: string; base: number; avg: number; min: number }[];
 };
 
 /** Interface agnóstica de provedor: qualquer backend (simulação, OpenAI, etc.) implementa isto. */

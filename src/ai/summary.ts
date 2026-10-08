@@ -1,10 +1,11 @@
-import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, diagnose, actionPlan, order, evaluateGoals } from '../finance';
+import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, diagnose, actionPlan, order, evaluateGoals, varStats } from '../finance';
+import { RECV_TYPES, CERT, fmtOccDate, lumpSentence, isOpen, allOccurrences } from '../recv';
 import type { FinancialSummary } from './types';
 
 export function buildSummary(d: Data): FinancialSummary {
   const r = diagnose(d); const p = actionPlan(d); const g = evaluateGoals(d);
   const expIds = new Set(r.expensive.map(x => x.id));
-  void CATEGORIES;
+  void CATEGORIES; void RECV_TYPES;
   return {
     hasData: d.incomes.length > 0,
     income: r.income, expenses: r.expenses, minPayments: r.minPayments, balance: r.balance,
@@ -20,5 +21,9 @@ export function buildSummary(d: Data): FinancialSummary {
     surplusAfterCuts: p.surplus, freeForGoals: p.freeForGoals, freeAfterDebts: g.freeAfter, suggestedCuts: p.cuts,
     goals: g.results.map(x => ({ name: x.goal.name, type: GOAL_TYPES[x.goal.type], target: x.target, saved: x.goal.saved, monthsLeft: x.months, monthlyNeed: x.need, fits: x.fits, priority: x.goal.priority })),
     planSteps: p.steps.map(s => s.title),
+    receivables: { count: d.receivables.length, expected: p.recv.fc.expected, weighted: p.recv.fc.weighted, guaranteed: p.recv.fc.guaranteed, mode: p.recv.mode, overdue: p.recv.fc.overdue,
+      upcoming: allOccurrences(d).filter(isOpen).slice(0, 8).map(o => ({ name: o.recv.name + (o.inst.label ? ` (${o.inst.label})` : ''), type: o.recv.type, when: fmtOccDate(o.ym, o.day), net: o.net, certainty: CERT[o.certainty].label, prob: o.prob })),
+      uses: p.recv.lumpsFull.filter(l => l.occ.recv.recurrence !== 'monthly').slice(0, 8).map(l => ({ type: l.occ.recv.type, text: lumpSentence(l) })) },
+    variableIncome: d.incomes.filter(i => i.variable).map(i => { const v = varStats(i.history ?? []); return { name: i.name, base: v.base || i.amount, avg: v.avg, min: v.min }; }),
   };
 }

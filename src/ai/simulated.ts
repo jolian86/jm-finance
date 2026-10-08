@@ -185,10 +185,32 @@ export function simulatedReply(text: string, s: S): ChatReply {
   }
   return reply;
 }
+const TYPE_RX: [RegExp, string[], string][] = [[/\bplr\b|\bppr\b/, ['plr'], 'PLR'], [/13\s*(º|o\b)|decimo/, ['13o'], '13º'], [/ferias/, ['ferias'], 'férias'], [/restituic/, ['restituicao'], 'restituição do IR'],
+  [/honorari|\bexito\b|sucumb/, ['honorarios', 'exito'], 'honorários'], [/repasse|convenio/, ['convenio'], 'repasse de convênio'], [/comiss/, ['comissao'], 'comissão'], [/safra/, ['safra'], 'safra']];
+const PRESET_HINT: Record<string, string> = { plr: 'toque em “PLR” — já vem com 2 parcelas (outubro e fevereiro), e você ajusta meses e valores', '13o': 'toque em “13º salário” — eu sugiro as duas parcelas (novembro e dezembro) a partir do seu salário', ferias: 'toque em “Férias + 1/3”' };
+function futureIncome(s: S, t: string) {
+  const R = s.receivables; const hit = TYPE_RX.find(([rx]) => rx.test(t));
+  const types = hit?.[1]; const label = hit?.[2] ?? 'receitas futuras';
+  const uses = R.uses.filter(u => !types || types.includes(u.type));
+  const lines: string[] = [];
+  if (!R.count || (types && !uses.length && !R.upcoming.some(u => types.includes(u.type)))) {
+    lines.push(`Você ainda não cadastrou ${types ? label : 'receitas futuras'}. Em “Meus dados › Receitas futuras”, ${(types && PRESET_HINT[types[0]]) || 'use um dos atalhos (13º, PLR, honorários, nota fiscal, safra…)'}. Aí eu consigo dizer onde cada valor rende mais para você.`);
+    lines.push('Regra geral para dinheiro extra: 1) quitar dívida cara (rotativo, cheque especial); 2) completar a reserva de emergência; 3) objetivos.');
+  } else {
+    lines.push(`Nos próximos 12 meses você espera ${brl(R.expected)} em receitas futuras (${brl(R.weighted)} ponderado pela chance de receber; ${brl(R.guaranteed)} garantido). O plano usa ${R.mode === 'garantido' ? 'só o valor garantido' : 'o valor ponderado'}.`);
+    if (uses.length) { lines.push(`\nSugestão de uso${types ? ` para ${label}` : ''} (dívida cara → reserva → objetivos):`); uses.slice(0, 4).forEach(u => lines.push('• ' + u.text)); }
+    if (R.overdue) lines.push(`\n⚠️ ${R.overdue} recebimento(s) estão atrasados — não conte com eles até cair na conta.`);
+  }
+  if (types?.includes('13o')) lines.push('\nLembrete: a 1ª parcela do 13º vem sem descontos (até 30/11); INSS e IR saem da 2ª (até 20/12).');
+  if (types?.includes('plr')) lines.push('\nLembrete: PLR depende das metas e do acordo da empresa — até cair na conta, trate como provável.');
+  lines.push('\n✅ Use o dinheiro quando ele entrar. ❌ Não gaste por conta antes: nada de parcelas ou compras contando com valor provável ou incerto.');
+  return lines.join('\n') + END;
+}
 function route(text: string, s: S): string | ChatReply {
   const t = norm(text);
   if (/^(oi|ola|bom dia|boa tarde|boa noite|ajuda|help)\b/.test(t) && t.length < 25) return HELP;
   if (!s.hasData) return noData();
+  if (/\bplr\b|\bppr\b|13\s*(º|o\b)|decimo|restituic|honorari|recebiv|receita(s)? futura|\bbonus\b|safra|repasse|\bexito\b|sucumb|\bcomiss/.test(t) || (/ferias/.test(t) && /receb|terco|1\/3|dinheiro/.test(t))) return futureIncome(s, t);
   if (/vender|patrimonio|bens?\b|imovel|usar (meu|minha)/.test(t)) return assets(s);
   if (/compr|financi|parcel|gastar|trocar de/.test(t) && !/juntar|guardar para|guardar pra/.test(t)) {
     const v = parseValue(text); const base = purchase(s, text);

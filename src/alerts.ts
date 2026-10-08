@@ -1,3 +1,4 @@
+import { allOccurrences, fmtOccDate, CERT } from './recv';
 import { Data, Category, CATEGORIES, diagnose, evaluateGoals, brl, thisMonth } from './finance';
 import { plannedByCategory, ymShort, needsClosing } from './history';
 import { billStage, BillStage, iso, br, upcomingReminders, nonBusinessReason } from './businessDays';
@@ -20,7 +21,7 @@ export function billAlert(name: string, value: number, day: number, st: BillStag
 }
 
 export type AlertTab = 'inicio' | 'dados' | 'diagnostico' | 'plano' | 'objetivos' | 'evolucao';
-export type Alert = { tag?: string; id: string; level: 'bad' | 'warn' | 'info'; title: string; text: string; tab: AlertTab; cta: string; dueDate?: string; action?: 'close-month' | 'backup' };
+export type Alert = { tag?: string; id: string; level: 'bad' | 'warn' | 'info'; title: string; text: string; tab: AlertTab; cta: string; dueDate?: string; action?: 'close-month' | 'backup'; anchor?: string };
 
 
 export function computeAlerts(d: Data, now = new Date()): Alert[] {
@@ -32,6 +33,12 @@ export function computeAlerts(d: Data, now = new Date()): Alert[] {
   if (!d.isExample && d.incomes.length && ref) {
     const days = Math.floor((Date.now() - Date.parse(ref)) / 864e5);
     if (days > 30) out.push({ id: `backup-${d.month}`, level: 'info', title: 'Faça um backup', text: `${d.settings.lastBackupAt ? `Seu último backup foi há ${days} dias.` : 'Você ainda não fez nenhum backup.'} Seus dados ficam só neste aparelho: um backup leva segundos e protege contra troca de celular ou limpeza do navegador.`, tab: 'dados', cta: 'Fazer backup', action: 'backup' });
+  }
+  // receitas futuras: atrasadas e chegando em até 3 dias
+  for (const o of allOccurrences(d, now, 2)) {
+    const nm = `${o.recv.name}${o.inst.label ? ` (${o.inst.label})` : ''}`; const when = fmtOccDate(o.ym, o.day);
+    if (o.status === 'atrasado' && o.daysToDue >= -120) out.push({ id: `recv-late-${o.key}`, level: 'warn', tag: 'Recebimento atrasado', title: `${nm} não chegou`, text: `Estava previsto para ${when} (${brl(Math.round(o.net))}, ${CERT[o.certainty].label.toLowerCase()}). Acompanhe/cobre e, quando cair, marque como recebido — ou ajuste a data ou cancele. Não conte com esse dinheiro até ele cair na conta.`, tab: 'dados', cta: 'Ver receitas futuras', anchor: 'receitas' });
+    else if (o.status === 'previsto' && o.daysToDue >= 0 && o.daysToDue <= 3) out.push({ id: `recv-soon-${o.key}`, level: 'info', tag: 'Recebimento chegando', title: o.daysToDue === 0 ? `${nm} deve cair hoje` : `${nm} deve cair em ${o.daysToDue} dia${o.daysToDue > 1 ? 's' : ''}`, text: `${brl(Math.round(o.net))} previsto para ${when} (${CERT[o.certainty].label.toLowerCase()}). Quando cair, marque como recebido e siga o plano de uso — até lá, não gaste por conta.`, tab: 'dados', cta: 'Ver receitas futuras', anchor: 'receitas' });
   }
   if (needsClosing(d, cal)) out.push({ id: `close-${d.month}`, level: 'info', title: `Feche o mês de ${ymShort(d.month)}`, text: 'Um novo mês começou. Fechar o mês guarda sua foto financeira no histórico para você acompanhar a evolução.', tab: 'evolucao', cta: 'Fechar mês', action: 'close-month' });
   // vencimentos: 1º lembrete 3 dias corridos antes; 2º lembrete 1 dia útil antes (feriados nacionais/bancários)

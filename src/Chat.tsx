@@ -6,7 +6,7 @@ import type { SimLink } from './ai/types';
 import mark from './assets/jm-mark-96.webp';
 
 const KEY = 'jmfinance:chat';
-const CHIPS = ['Como sair do vermelho?', 'Qual dívida pagar primeiro?', 'Quero fazer uma viagem de R$ 6 mil', 'Posso financiar um carro de R$ 40 mil?', 'Quanto devo guardar por mês?', 'Vale a pena investir agora?'];
+const CHIPS = ['Como usar minha PLR?', 'Como sair do vermelho?', 'Qual dívida pagar primeiro?', 'Quero fazer uma viagem de R$ 6 mil', 'Posso financiar um carro de R$ 40 mil?', 'Quanto devo guardar por mês?', 'Vale a pena investir agora?'];
 const loadChat = (): ChatMessage[] => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 const bubble = { initial: { opacity: 0, y: 10, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { duration: 0.25 } };
 

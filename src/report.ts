@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import logoUrl from './assets/jm-mark-pdf.jpg';
 import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, DISCLAIMER, Category, brl, diagnose, actionPlan, evaluateGoals, monthsUntil } from './finance';
 import { ymTitle, ymShort, plannedByCategory, series, deltas } from './history';
+import { allOccurrences, isOpen, CERT, RECV_TYPES, fmtOccDate, lumpSentence } from './recv';
 
 type RGB = [number, number, number];
 const INK: RGB = [28, 22, 16], MUTED: RGB = [105, 94, 78], LINE: RGB = [226, 216, 198], CREAM: RGB = [250, 246, 238];
@@ -189,6 +190,21 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
     para(`Projeção de quitação com ${brl0(budget)}/mês para dívidas: Avalanche (maior juro primeiro) ${av.feasible ? `${av.months} meses, ${brl0(av.interest)} de juros` : 'não quita em 10 anos'}; Bola de neve (menor saldo primeiro) ${sb.feasible ? `${sb.months} meses, ${brl0(sb.interest)} de juros` : 'não quita em 10 anos'}.`, 9.2);
   }
   disc();
+
+  // ---------- Receitas futuras ----------
+  if (d.receivables.length) {
+    section('Receitas futuras (12 meses)', 40);
+    const fc = plan.recv.fc;
+    para(`Previsto: ${brl0(fc.expected)} · ponderado pela chance de receber: ${brl0(fc.weighted)} · garantido: ${brl0(fc.guaranteed)}. O plano usa ${plan.recv.mode === 'garantido' ? 'só o valor garantido' : 'o valor ponderado'}.`, 9.4);
+    y += 2;
+    const occ = allOccurrences(d).filter(isOpen).slice(0, 14);
+    table([{ h: 'Recebimento', w: 62 }, { h: 'Tipo', w: 36 }, { h: 'Quando', w: 22, a: 'c' }, { h: 'Líquido', w: 26, a: 'r' }, { h: 'Certeza', w: CW - 146 }],
+      occ.map(o => [o.recv.name + (o.inst.label ? ` (${o.inst.label})` : ''), RECV_TYPES[o.recv.type].label, fmtOccDate(o.ym, o.day), brl0(o.net), o.status === 'atrasado' ? 'ATRASADO' : `${CERT[o.certainty].label}${o.certainty !== 'garantido' ? ` ${o.prob}%` : ''}`]),
+      { tone: occ.map(o => [undefined, undefined, undefined, undefined, o.status === 'atrasado' ? LV['crítico'] : o.certainty === 'incerto' ? MUTED : undefined]) });
+    plan.recv.lumpsFull.filter(l => l.occ.recv.recurrence !== 'monthly').slice(0, 5).forEach(l => { ensure(6); col(GOLD_M, 'fill'); doc.circle(M + 1.4, y + 2.5, 0.65, 'F'); para(lumpSentence(l), 8.8, INK, M + 4, CW - 4, 1.3); });
+    para('Nunca gaste dinheiro incerto antes de ele cair na conta.', 8.8, LV['crítico']);
+    disc();
+  }
 
   // ---------- Objetivos ----------
   section('Objetivos', 36);

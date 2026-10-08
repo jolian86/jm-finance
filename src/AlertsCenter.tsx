@@ -14,7 +14,7 @@ const ICON = { bad: '!', warn: '!', info: 'i' };
 
 export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onCloseMonth, onClose, alertTime, onTime, onBackup }: {
   alertTime: string; onTime: (t: string) => void; onBackup: () => void;
-  alerts: Alert[]; dismissed: string[]; onDismiss: (id: string) => void; onRestore: () => void; onGo: (t: AlertTab) => void; onCloseMonth: () => void; onClose: () => void;
+  alerts: Alert[]; dismissed: string[]; onDismiss: (id: string) => void; onRestore: () => void; onGo: (t: AlertTab, anchor?: string) => void; onCloseMonth: () => void; onClose: () => void;
 }) {
   const [notif, setNotif] = useState(notifEnabled());
   const [msg, setMsg] = useState('');
@@ -36,7 +36,7 @@ export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onC
           <span className="alert-ico">{ICON[a.level]}</span>
           <div>{a.tag && <small className="alert-tag">{a.tag}</small>}<b>{a.title}</b><p>{a.text}</p>
             <div className="alert-actions">
-              {a.action === 'close-month' ? <button className="btn sm" onClick={onCloseMonth}>{a.cta}</button> : a.action === 'backup' ? <button className="btn sm" onClick={onBackup}>{a.cta} →</button> : <button className="btn sm" onClick={() => onGo(a.tab)}>{a.cta} →</button>}
+              {a.action === 'close-month' ? <button className="btn sm" onClick={onCloseMonth}>{a.cta}</button> : a.action === 'backup' ? <button className="btn sm" onClick={onBackup}>{a.cta} →</button> : <button className="btn sm" onClick={() => onGo(a.tab, a.anchor)}>{a.cta} →</button>}
               <button className="link" onClick={() => onDismiss(a.id)}>Dispensar</button>
             </div></div>
         </motion.div>)}
