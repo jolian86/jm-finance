@@ -40,11 +40,11 @@ export default function Evolucao({ data, onCloseMonth }: { data: Data; onCloseMo
           {GRID}<XAxis dataKey="label" {...AX} /><YAxis domain={[0, 100]} width={34} {...AX} /><Tooltip {...TT} />
           <Line dataKey="score" name="Nota" stroke={CH.gold} strokeWidth={2.5} dot={{ r: 3, fill: CH.gold }} animationDuration={1200} /></LineChart></ResponsiveContainer>
       </Card>
-      <Card title="Patrimônio líquido" hint="Tudo o que você tem menos tudo o que deve.">
+      <Card title="Quanto você tem de verdade" hint="Tudo o que você tem menos tudo o que deve (bens − dívidas).">
         <ResponsiveContainer width="100%" height={190}><AreaChart data={pts} margin={{ top: 8, right: 8 }}>
           <defs><linearGradient id="nwG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={CH.gold} stopOpacity={0.45} /><stop offset="1" stopColor={CH.gold} stopOpacity={0.02} /></linearGradient></defs>
           {GRID}<XAxis dataKey="label" {...AX} /><YAxis width={58} {...AXY} /><Tooltip {...brlTT} />
-          <Area dataKey="netWorth" name="Patrimônio líquido" stroke={CH.gold} strokeWidth={2.5} fill="url(#nwG)" animationDuration={1200} /></AreaChart></ResponsiveContainer>
+          <Area dataKey="netWorth" name="Quanto você tem de verdade" stroke={CH.gold} strokeWidth={2.5} fill="url(#nwG)" animationDuration={1200} /></AreaChart></ResponsiveContainer>
       </Card>
       <Card title="Dívida total">
         <ResponsiveContainer width="100%" height={190}><BarChart data={pts} margin={{ top: 8, right: 8 }}>

@@ -59,13 +59,12 @@ for (const vp of VPS) {
     await p.reload(); await wait(800);
     await p.click('nav >> text=Meus dados'); await wait(800);
     await p.locator('#receitas .presets button', { hasText: 'PLR' }).scrollIntoViewIfNeeded(); await p.locator('#receitas .presets button', { hasText: 'PLR' }).click(); await wait(800);
-    const vals = p.locator('.recv-form input[data-val="bruto"]');
-    const labels = await p.$$eval('.recv-form .inst-row', rs => rs.map(r => `${r.querySelector('.inst-label')?.value} ${r.querySelector('select')?.selectedOptions[0]?.text} bruto=${r.querySelector('input[data-val=bruto]')?.value}`));
+    const vals = p.locator('.recv-form input[data-val="liquido"]');
+    const labels = await p.$$eval('.recv-form .inst-row', rs => rs.map(r => `${r.querySelector('.inst-label')?.value} ${r.querySelector('select')?.selectedOptions[0]?.text} liquido=${r.querySelector('input[data-val=liquido]')?.value}`));
     console.log(vp.n, 'PLR preset:', labels.join(' | '), '| campos Valor:', await vals.count());
     checks++; if (await vals.count() !== 2) fails.push(`${vp.n} · PLR sem 2 campos de valor`);
-    await vals.nth(0).scrollIntoViewIfNeeded(); await check('PLR: Valor bruto (out)', '.recv-form input[data-val="bruto"] >> nth=0');
-    await vals.nth(0).fill('3500'); await vals.nth(1).fill('2500');
-    await p.locator('.recv-form input[data-val="liquido"]').nth(1).fill('2200');
+    await vals.nth(0).scrollIntoViewIfNeeded(); await check('PLR: Quanto cai na conta (out)', '.recv-form input[data-val="liquido"] >> nth=0');
+    for (const [k, v] of [[0, '3500'], [1, '2200']]) { await vals.nth(k).click(); await wait(150); await vals.nth(k).fill(v); }
     await p.locator('.recv-form .inst-row').nth(0).scrollIntoViewIfNeeded(); await wait(300);
     await shot('20-plr-form-valores-out-fev', true);
     await p.evaluate(() => document.querySelector('.recv-form').scrollTo(0, 1e6)); await wait(300);
@@ -75,7 +74,7 @@ for (const vp of VPS) {
     await p.locator('.recv-form .modal-actions .btn:not(.ghost)').click(); await wait(800);
     const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('jmfinance:data')).receivables);
     console.log(vp.n, 'salvo:', JSON.stringify(saved.map(r => ({ name: r.name, inst: r.installments.map(i => `${i.date}:${i.gross}/${i.net ?? '-'}`) }))));
-    checks++; if (!(saved.length === 1 && saved[0].installments[0].gross === 3500 && saved[0].installments[1].gross === 2500 && saved[0].installments[1].net === 2200)) fails.push(`${vp.n} · PLR não salvou os valores`);
+    checks++; if (!(saved.length === 1 && (saved[0].installments[0].net ?? saved[0].installments[0].gross) === 3500 && saved[0].installments[1].net === 2200)) fails.push(`${vp.n} · PLR não salvou os valores`);
     const item = p.locator('#receitas .recv').first(); await item.scrollIntoViewIfNeeded(); await wait(300);
     const itemTxt = (await item.textContent()).replace(/\u00a0/g, ' ');
     checks++; if (!(itemTxt.includes('R$ 3.500,00') && itemTxt.includes('R$ 2.200,00'))) fails.push(`${vp.n} · lista sem os valores: ${itemTxt}`);
@@ -106,7 +105,7 @@ for (const vp of VPS) {
     await p.reload(); await wait(800); await p.click('nav >> text=Meus dados'); await wait(800);
     await p.locator('#receitas .presets button', { hasText: 'PLR' }).scrollIntoViewIfNeeded(); await p.locator('#receitas .presets button', { hasText: 'PLR' }).click(); await wait(900);
     const foc = await p.evaluate(() => document.activeElement?.getAttribute('data-val') + ' ' + document.activeElement?.getAttribute('aria-label') + ' placeholder=' + document.activeElement?.getAttribute('placeholder'));
-    console.log(vp.n, 'sem salário, foco:', foc); checks++; if (!foc.startsWith('bruto')) fails.push(`${vp.n} · valor não focado sem salário`);
+    console.log(vp.n, 'sem salário, foco:', foc); checks++; if (!foc.startsWith('liquido')) fails.push(`${vp.n} · valor não focado sem salário`);
     await p.locator('.recv-form .modal-actions .btn:not(.ghost)').click(); await wait(300);
     console.log(vp.n, 'erro sem valor:', await p.locator('.recv-form .backup-msg.err').textContent());
     await p.locator('.recv-form .inst-row').first().scrollIntoViewIfNeeded(); await wait(200);
@@ -124,12 +123,12 @@ for (const vp of VPS) {
   if (r1.fab) fails.push(`${vp.n} · FAB visível com formulário aberto`);
   await shot('01-receita-nova-salvar-fixo');
   // teclado (viewport reduzido) no valor bruto
-  await kbOn('.recv-form input[data-val="bruto"]');
+  await kbOn('.recv-form input[data-val="liquido"]');
   await check('Receita futura + teclado: Salvar', '.recv-form .modal-actions .btn:not(.ghost)');
   const kbcls = await p.evaluate(() => document.body.className); if (vp.kb && !kbcls.includes('kb-open')) fails.push(`${vp.n} · kb-open não detectado (${kbcls})`);
   await shot('02-receita-nova-teclado'); await kbOff();
   // salvar de verdade com clique normal
-  await p.fill('.recv-form input[data-val="bruto"] >> nth=0', '2800');
+  await p.fill('.recv-form input[data-val="liquido"] >> nth=0', '2800');
   await p.locator('.recv-form .modal-actions .btn:not(.ghost)').click({ timeout: 3000 }); await wait(600);
   const nRecv = await p.evaluate(() => JSON.parse(localStorage.getItem('jmfinance:data')).receivables.length);
   if (nRecv !== 5 && !vp.plr) fails.push(`${vp.n} · salvar não funcionou (${nRecv})`);

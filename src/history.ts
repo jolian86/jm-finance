@@ -62,7 +62,7 @@ export function deltas(d: Data): Delta[] {
   const dd = c.totalDebt - last.totalDebt;
   if (Math.abs(dd) >= 1) out.push(dd < 0 ? { tone: 'good', text: `Sua dívida caiu ${brl(-dd)} ${since}.` } : { tone: 'bad', text: `Sua dívida aumentou ${brl(dd)} ${since}.` });
   const nw = c.netWorth - last.netWorth;
-  if (Math.abs(nw) >= 1) out.push(nw > 0 ? { tone: 'good', text: `Seu patrimônio líquido cresceu ${brl(nw)} ${since}.` } : { tone: 'bad', text: `Seu patrimônio líquido diminuiu ${brl(-nw)} ${since}.` });
+  if (Math.abs(nw) >= 1) out.push(nw > 0 ? { tone: 'good', text: `Quanto você tem de verdade (bens − dívidas) cresceu ${brl(nw)} ${since}.` } : { tone: 'bad', text: `Quanto você tem de verdade (bens − dívidas) diminuiu ${brl(-nw)} ${since}.` });
   if (c.score !== last.score) out.push(c.score > last.score ? { tone: 'good', text: `Sua nota subiu de ${last.score} para ${c.score}.` } : { tone: 'bad', text: `Sua nota caiu de ${last.score} para ${c.score}.` });
   const rm = c.reserveMonths - last.reserveMonths;
   if (Math.abs(rm) >= 0.05) out.push({ tone: rm > 0 ? 'good' : 'bad', text: `Sua reserva ${rm > 0 ? 'aumentou' : 'diminuiu'} de ${f1(last.reserveMonths)} para ${f1(c.reserveMonths)} meses de custos.` });

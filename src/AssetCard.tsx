@@ -1,4 +1,4 @@
-import { Asset, AssetType, ASSET_TYPES, Data, Goal, uid, brl } from './finance';
+import { Asset, AssetType, ASSET_TYPES, Data, Goal, uid, brl, newRetire } from './finance';
 import { MoneyInput } from './ui';
 
 const LONG_TERM: AssetType[] = ['previdencia', 'seguro_vida'];
@@ -21,12 +21,12 @@ export function AssetCard({ a, data, mark, goGoals }: { a: Asset; data: Data; ma
     else setA({ monthly: v || undefined });
   };
   const toggleExpense = (on: boolean) => {
-    if (on) { const id = uid(); setA({ expenseId: id }, { expenses: [...data.expenses, { id, name: expName, amount: monthly, category: 'protecao', kind: 'fixa' }] }); }
+    if (on) { const id = uid(); setA({ expenseId: id }, { expenses: [...data.expenses, { id, name: expName, amount: monthly, category: 'protecao', kind: 'fixa', kindSet: false }] }); }
     else mark({ assets: data.assets.map(x => x.id === a.id ? { ...x, expenseId: undefined, monthly: monthly || undefined } : x), expenses: data.expenses.filter(e => e.id !== a.expenseId) });
   };
   const useInRetirement = () => {
     if (retireGoal) { setA({ forRetirement: true }); return; }
-    const g: Goal = { id: uid(), name: 'Aposentadoria', type: 'aposentadoria', target: 0, date: '', saved: 0, priority: 'alta', retire: { monthlyIncome: 3000, age: 35, retireAge: 65, rate: 0.4 } };
+    const g: Goal = { id: uid(), name: 'Aposentadoria', type: 'aposentadoria', target: 0, date: '', saved: 0, priority: 'alta', retire: newRetire(35) };
     setA({ forRetirement: true }, { goals: [...data.goals, g] });
   };
   const remove = () => mark({ assets: data.assets.filter(x => x.id !== a.id), ...(linked ? { expenses: data.expenses.filter(e => e.id !== linked.id) } : {}) });
@@ -37,8 +37,8 @@ export function AssetCard({ a, data, mark, goGoals }: { a: Asset; data: Data; ma
       <label className="f-type">Tipo<select value={a.type} onChange={e => { const t = e.target.value as AssetType; setA({ type: t, liquid: ASSET_TYPES[t].liquid, ...(t !== 'previdencia' ? { forRetirement: false } : {}) }); }}>
         {Object.entries(ASSET_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
       <label className="f-money">{long ? 'Saldo hoje' : 'Valor estimado'}<MoneyInput label={long ? 'Saldo acumulado hoje' : 'Valor estimado'} value={a.value} onChange={n => setA({ value: n ?? 0 })} /></label>
-      {long && <label className="f-money">{a.type === 'previdencia' ? 'Aporte por mês' : 'Pagamento por mês'}
-        <MoneyInput label={a.type === 'previdencia' ? 'Aporte mensal da previdência (opcional)' : 'Pagamento mensal do seguro (opcional)'} placeholder="opcional" value={monthly || undefined} onChange={setMonthly} /></label>}
+      {long && <label className="f-money">{a.type === 'previdencia' ? 'Quanto põe por mês' : 'Quanto paga por mês'}
+        <MoneyInput label={a.type === 'previdencia' ? 'Quanto você põe por mês na previdência (opcional)' : 'Pagamento mensal do seguro (opcional)'} placeholder="opcional" value={monthly || undefined} onChange={setMonthly} /></label>}
     </div>
     <p className={`asset-auto ${T.liquid ? 'yes' : ''}`}>{T.liquid ? '✓ Disponível rápido — ' : long ? 'Fora da reserva de emergência — ' : 'Não entra no disponível rápido — '}<span>{T.hint}</span></p>
     {long && <div className="asset-extra">
@@ -47,8 +47,8 @@ export function AssetCard({ a, data, mark, goGoals }: { a: Asset; data: Data; ma
       {linked && <small className="fhint">Está em Gastos mensais › Previdência e seguros. Mude o valor aqui ou lá — é o mesmo gasto, contado uma vez só.</small>}
       {similar && <small className="fhint warn">Você já tem o gasto “{similar.name}” ({brl(similar.amount)}). Se for este mesmo pagamento, não marque — senão ele conta duas vezes.</small>}
       {a.type === 'previdencia' && (a.forRetirement
-        ? <p className="asset-goal">✓ Conta no objetivo de aposentadoria: o saldo entra como já guardado{linked ? ' e o aporte mensal reduz o que falta guardar' : ''}. {goGoals && <button className="link" onClick={goGoals}>Ver objetivo</button>} · <button className="link" onClick={() => setA({ forRetirement: false })}>não usar</button>
-          {!linked && monthly > 0 && <small className="fhint">Para o aporte também contar no objetivo, lance-o em Gastos (caixa acima) — assim o plano sabe de onde sai esse dinheiro.</small>}</p>
+        ? <p className="asset-goal">✓ Conta no objetivo de aposentadoria: o saldo entra como já guardado{linked ? ' e o que você põe por mês reduz o quanto falta guardar' : ''}. {goGoals && <button className="link" onClick={goGoals}>Ver objetivo</button>} · <button className="link" onClick={() => setA({ forRetirement: false })}>não usar</button>
+          {!linked && monthly > 0 && <small className="fhint">Para o valor mensal também contar no objetivo, lance-o em Gastos (caixa acima) — assim o plano sabe de onde sai esse dinheiro.</small>}</p>
         : <button className="link asset-goal-btn" onClick={useInRetirement}>Usar no objetivo de aposentadoria{retireGoal ? '' : ' (cria o objetivo)'} →</button>)}
     </div>}
   </div>;

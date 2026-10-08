@@ -93,13 +93,14 @@ export function parseMoney(t: string): number | undefined {
   const n = Number(s); return Number.isFinite(n) ? n : undefined;
 }
 /** Campo com prefixo "R$": mostra 10.000,00 e, ao tocar, vira texto simples para editar. */
-export function MoneyInput({ value, onChange, label, placeholder = '0,00', readOnly, className, title }: {
+export function MoneyInput({ value, onChange, label, placeholder = '0,00', readOnly, className, title, dataVal, inputRef }: {
   value: number | undefined; onChange: (n: number | undefined) => void; label: string; placeholder?: string; readOnly?: boolean; className?: string; title?: string;
+  dataVal?: string; inputRef?: React.Ref<HTMLInputElement>;
 }) {
   const [txt, setTxt] = useState<string | null>(null);
   const shown = txt ?? (value ? fmtMoney(value) : '');
   return <span className={`money ${className ?? ''}`}><span className="money-pre" aria-hidden="true">R$</span>
-    <input type="text" inputMode="decimal" autoComplete="off" enterKeyHint="done" aria-label={label} title={title ?? label} placeholder={placeholder} value={shown} readOnly={readOnly} data-money=""
+    <input type="text" inputMode="decimal" autoComplete="off" enterKeyHint="done" aria-label={label} title={title ?? label} placeholder={placeholder} value={shown} readOnly={readOnly} data-money="" data-val={dataVal} ref={inputRef}
       onFocus={e => { if (readOnly) return; const raw = value ? String(Math.round(value * 100) / 100).replace('.', ',') : ''; setTxt(raw); const el = e.currentTarget; setTimeout(() => { if (el.value === raw && document.activeElement === el) el.select(); }, 0); }}
       onChange={e => { const t = e.target.value.replace(/[^\d.,]/g, ''); setTxt(t); onChange(parseMoney(t)); }}
       onBlur={() => setTxt(null)} /></span>;
@@ -109,4 +110,13 @@ export function MoneyInput({ value, onChange, label, placeholder = '0,00', readO
 export function DayInput({ value, onChange, label = 'Dia de vencimento (opcional)', prefix = true }: { value: number | undefined; onChange: (v: string) => void; label?: string; prefix?: boolean }) {
   return <span className={`dayf ${prefix ? 'pre' : ''}`}>{prefix && <span className="day-pre" aria-hidden="true">dia</span>}
     <input className="due" type="number" inputMode="numeric" min={1} max={31} step={1} placeholder="—" aria-label={label} title={label} value={value ?? ''} onChange={e => onChange(e.target.value.slice(0, 2))} /></span>;
+}
+
+/** Ajuste avançado, discreto e opcional: fechado por padrão, com padrões sensatos. */
+export function Adv({ label = 'Ajustar (opcional)', children, open: open0 = false, note }: { label?: string; children: React.ReactNode; open?: boolean; note?: string }) {
+  const [open, setOpen] = useState(open0);
+  return <div className={`adv ${open ? 'open' : ''}`}>
+    <button type="button" className="adv-toggle" aria-expanded={open} onClick={() => setOpen(o => !o)}><span>{label}</span>{note && !open && <small>{note}</small>}<span className="adv-chev" aria-hidden="true">▾</span></button>
+    {open && <div className="adv-body">{children}</div>}
+  </div>;
 }

@@ -7,14 +7,14 @@ import { DebtCard } from './DebtCard';
 import { AssetCard } from './AssetCard';
 import Backup from './Backup';
 import { ReceivablesCard, ForecastCard, VarIncome, ModeToggle } from './Receivables';
-import { varStats , fmtAm } from './finance';
+import { varStats, fmtAm, STRATEGY, inferKind, withAutoKind, newRetire, amToAa, aaToAm, DEFAULT_REAL_AA, DEFAULT_REAL_AM, Expense } from './finance';
 import { Welcome, TermsSheet, deleteAllData } from './Terms';
 import { TERMS_VERSION, hasAccepted } from './terms';
 import type { SimId } from './sim';
 import { Bell, AlertsPanel, Modal } from './AlertsCenter';
 import { computeAlerts, notifyNew, saveReminders, AlertTab } from './alerts';
 import { closeMonth, needsClosing, fullExample, ymLong, ymTitle, ymShort, deltas, plannedByCategory } from './history';
-import { AnimatedNumber, ScoreGauge, ProgressRing, BrandLockup, Splash, Icon, MoneyInput, DayInput } from './ui';
+import { AnimatedNumber, ScoreGauge, ProgressRing, BrandLockup, Splash, Icon, MoneyInput, DayInput, Adv } from './ui';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, LineChart, Line, Legend, CartesianGrid } from 'recharts';
 import { Data, Category, GoalType, Priority, Goal, CATEGORIES, GOAL_TYPES, PRIORITIES, DISCLAIMER, brl, pct, uid, emptyData, thisMonth, diagnose, actionPlan, order, migrate, evaluateGoals } from './finance';
 
@@ -211,21 +211,10 @@ function Inputs({ data, upd, setData, onCloseMonth, goGoals }: { data: Data; upd
           : paid ? <>{label}: {items.length > 1 ? 'contas pagas' : 'conta paga'} — {r0(a)} de {r0(p)} planejados (100%).</>
           : <>{label}: você já usou <b>{r0(a)}</b> dos {r0(p)} planejados (<b>{pc}%</b>){cls === 'over' ? <> — <b>{r0(a - p)} acima</b> do plano.</> : cls === 'near' ? <> — restam {r0(p - a)}.</> : '.'}</>;
         return <section className={`cat-card ${cls}`} key={c} aria-label={`Categoria ${label}`}>
-          <div className="cat-head"><b>{label}</b><small>{items.length} {items.length === 1 ? 'gasto' : 'gastos'} · {allFixed ? 'fixo' : items.some(e => e.kind === 'fixa') ? 'fixo + variável' : 'variável'}</small></div>
-          {items.map(i => { const setE = (pp: Partial<typeof i>) => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, ...pp } : x) });
-            return <div className="exp" key={i.id}>
-            <div className="exp-l1">
-              <input className="row-name" aria-label="Nome do gasto" placeholder="Nome do gasto" value={i.name} onChange={e => setE({ name: e.target.value })} />
-              <MoneyInput label={`Valor planejado de ${i.name || 'gasto'}`} value={i.amount} onChange={n => setE({ amount: n ?? 0 })} />
-              <button className="x" aria-label={`Remover ${i.name || 'gasto'}`} onClick={() => mark({ expenses: data.expenses.filter(x => x.id !== i.id) })}>✕</button></div>
-            <div className="exp-l2">
-              <select className="exp-cat" aria-label="Categoria" title="Categoria" value={i.category} onChange={e => setE({ category: e.target.value as Category })}>
-                {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k} title={v.label}>{v.short || v.label}</option>)}</select>
-              <select className="exp-kind" aria-label="Fixo ou variável" title="Fixo ou variável" value={i.kind} onChange={e => setE({ kind: e.target.value as 'fixa' })}>
-                <option value="fixa">Fixo</option><option value="variavel">Variável</option></select>
-              <DayInput value={i.dueDay} onChange={v => setE({ dueDay: day(v) })} />
-            </div></div>; })}
-          <button className="link add-in-cat" onClick={() => mark({ expenses: [...data.expenses, { id: uid(), name: 'Novo gasto', amount: 0, category: c, kind: allFixed ? 'fixa' : 'variavel' }] })}>+ gasto em {label}</button>
+          <div className="cat-head"><b>{label}</b><small>{items.length} {items.length === 1 ? 'gasto' : 'gastos'} · {allFixed ? (items.length === 1 ? 'conta fixa' : 'contas fixas') : items.some(e => e.kind === 'fixa') ? 'fixos e que variam' : 'valor varia'}</small></div>
+          {items.map(i => <ExpRow key={i.id} e={i} set={pp => mark({ expenses: data.expenses.map(x => x.id === i.id ? withAutoKind({ ...x, ...pp }) : x) })}
+            remove={() => mark({ expenses: data.expenses.filter(x => x.id !== i.id) })} day={day} />)}
+          <button className="link add-in-cat" onClick={() => mark({ expenses: [...data.expenses, { id: uid(), name: 'Novo gasto', amount: 0, category: c, kind: inferKind(c), kindSet: false }] })}>+ gasto em {label}</button>
           <div className="cat-budget">
             <div className="cat-cells">
               <div className="cat-cell"><small>Planejado</small><b>{brl(p)}</b></div>
@@ -237,7 +226,7 @@ function Inputs({ data, upd, setData, onCloseMonth, goGoals }: { data: Data; upd
             {allFixed && p > 0 && <label className="chk-line paid-toggle"><input type="checkbox" checked={paid} onChange={e => setA(e.target.checked ? p : undefined)} />Já paguei {items.length > 1 ? 'as contas' : 'a conta'} deste mês</label>}
           </div>
         </section>; })}
-      <button className="btn ghost" onClick={() => mark({ expenses: [...data.expenses, { id: uid(), name: 'Novo gasto', amount: 0, category: 'outros', kind: 'variavel' }] })}>+ Adicionar gasto</button>
+      <button className="btn ghost" onClick={() => mark({ expenses: [...data.expenses, { id: uid(), name: 'Novo gasto', amount: 0, category: 'outros', kind: inferKind('outros'), kindSet: false }] })}>+ Adicionar gasto</button>
     </div>
     <div className="card"><h3>Dívidas</h3>
       <p className="hint">Informe o que você sabe: quanto falta pagar, o valor da parcela e quantas faltam. Se não souber os juros, o app calcula.</p>
@@ -255,6 +244,30 @@ function Inputs({ data, upd, setData, onCloseMonth, goGoals }: { data: Data; upd
   </>;
 }
 
+/** Uma linha de gasto. "Fixo ou varia" é decidido pelo app; o ajuste manual fica escondido e é opcional. */
+function ExpRow({ e: i, set: setE, remove, day }: { e: Expense; set: (p: Partial<Expense>) => void; remove: () => void; day: (v: string) => number | undefined }) {
+  const [adj, setAdj] = useState(false);
+  const auto = inferKind(i.category, i.name);
+  return <div className="exp">
+    <div className="exp-l1">
+      <input className="row-name" aria-label="Nome do gasto" placeholder="Nome do gasto" value={i.name} onChange={e => setE({ name: e.target.value })} />
+      <MoneyInput label={`Valor planejado de ${i.name || 'gasto'}`} value={i.amount} onChange={n => setE({ amount: n ?? 0 })} />
+      <button className="x" aria-label={`Remover ${i.name || 'gasto'}`} onClick={remove}>✕</button></div>
+    <div className="exp-l2">
+      <select className="exp-cat" aria-label="Categoria" title="Categoria" value={i.category} onChange={e => setE({ category: e.target.value as Category })}>
+        {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k} title={v.label}>{v.short ?? v.label}</option>)}</select>
+      <button type="button" className={`kind-chip ${i.kindSet ? 'set' : ''}`} aria-expanded={adj} aria-label={`${i.kind === 'fixa' ? 'Conta fixa' : 'Valor varia'} — ajustar (opcional)`} title="Ajustar (opcional)" onClick={() => setAdj(a => !a)}>{i.kind === 'fixa' ? 'fixo' : 'varia'}</button>
+      <DayInput value={i.dueDay} onChange={v => setE({ dueDay: day(v) })} />
+    </div>
+    {adj && <div className="kind-adj" role="group" aria-label="Este gasto muda de valor?">
+      <small>{i.kindSet ? 'Você ajustou:' : 'O app decidiu pelo tipo de gasto:'}</small>
+      <label className="chk-line"><input type="radio" name={`k-${i.id}`} checked={i.kind === 'fixa'} onChange={() => setE({ kind: 'fixa', kindSet: auto !== 'fixa' })} />Sempre o mesmo valor (conta fixa)</label>
+      <label className="chk-line"><input type="radio" name={`k-${i.id}`} checked={i.kind === 'variavel'} onChange={() => setE({ kind: 'variavel', kindSet: auto !== 'variavel' })} />O valor muda de um mês para outro</label>
+      {i.kindSet && <button className="link" onClick={() => setE({ kindSet: false })}>voltar ao automático</button>}
+    </div>}
+  </div>;
+}
+
 function Diagnosis({ data }: { data: Data }) {
   const r = useMemo(() => diagnose(data), [data]);
   const byCat: Record<string, number> = {};
@@ -265,18 +278,18 @@ function Diagnosis({ data }: { data: Data }) {
   return <>
     <ScoreCard r={r} />
     <div className="grid2">
-      <Stat label="Renda comprometida" n={r.commitment} f={pct1} bad={r.commitment > 1} />
-      <Stat label="Dívida / renda (parcelas)" n={r.dti} f={pct1} bad={r.dti > 0.3} />
-      <Stat label="Juros pagos/mês" n={r.monthlyInterest} f={brl0} bad={r.monthlyInterest > 0} />
+      <Stat label="Renda já comprometida" sub="com gastos e parcelas" n={r.commitment} f={pct1} bad={r.commitment > 1} />
+      <Stat label="Renda que vai para parcelas" sub="de dívidas" n={r.dti} f={pct1} bad={r.dti > 0.3} />
+      <Stat label="Juros pagos por mês" n={r.monthlyInterest} f={brl0} bad={r.monthlyInterest > 0} />
       <Stat label="Reserva de emergência" n={r.reserveMonths} f={months} bad={r.reserveMonths < 1} />
     </div>
-    <div className="card"><h3>Patrimônio</h3>
+    <div className="card"><h3>O que você tem</h3>
       <div className="grid3">
-        <Stat label="Patrimônio total" n={r.totalAssets + r.reserve} f={brl0} />
-        <Stat label="Patrimônio líquido" n={r.netWorth} f={brl0} bad={r.netWorth < 0} />
+        <Stat label="Tudo o que você tem" sub="bens + reserva" n={r.totalAssets + r.reserve} f={brl0} />
+        <Stat label="Quanto você tem de verdade" sub="bens − dívidas" n={r.netWorth} f={brl0} bad={r.netWorth < 0} />
         <Stat label="Disponível rápido" sub="dinheiro que você consegue usar em poucos dias" n={r.liquidAssets + r.reserve} f={brl0} />
       </div>
-      <p className="hint">Patrimônio líquido = tudo o que você tem − tudo o que deve. Disponível rápido = reserva + conta/poupança + investimentos de resgate rápido; conta para emergências.</p>
+      <p className="hint">“Quanto você tem de verdade” é o que sobraria se você vendesse tudo e pagasse todas as dívidas. “Disponível rápido” é a reserva + conta/poupança + investimentos de resgate rápido — é o que conta para emergências.</p>
       <Disc /></div>
     <div className="card"><h3>O que isso significa</h3>
       {r.findings.map((f, i) => <div key={i} className={`finding ${f.tone}`}><b>{f.title}</b><p>{f.text}</p></div>)}<Disc /></div>
@@ -293,7 +306,11 @@ function Diagnosis({ data }: { data: Data }) {
 
 function Plan({ data, openSim, upd, goForecast }: { data: Data; openSim: () => void; upd: (p: Partial<Data>) => void; goForecast: () => void }) {
   const p = useMemo(() => actionPlan(data), [data]);
-  const line = p.payoff ? p.payoff.av.timeline.map((t, i) => ({ mes: t.mes, Avalanche: Math.round(t.saldo), 'Bola de neve': Math.round(p.payoff!.sb.timeline[i]?.saldo ?? 0) })) : [];
+  const rec = p.payoff?.rec ?? 'avalanche'; const other = rec === 'avalanche' ? 'snowball' : 'avalanche';
+  const tl = (s: 'avalanche' | 'snowball') => (s === 'avalanche' ? p.payoff!.av : p.payoff!.sb).timeline;
+  const N1 = `${STRATEGY[rec].name} (recomendado)`, N2 = STRATEGY[other].name;
+  const line = p.payoff ? Array.from({ length: Math.max(tl(rec).length, tl(other).length) }, (_, i) => ({ mes: i, [N1]: Math.round(tl(rec)[i]?.saldo ?? 0), [N2]: Math.round(tl(other)[i]?.saldo ?? 0) })) : [];
+  const recRes = p.payoff ? (rec === 'avalanche' ? p.payoff.av : p.payoff.sb) : null;
   return <>
     <div className="card"><h3>Seu plano de ação</h3><p className="hint">Siga na ordem. Cada etapa prepara a próxima.</p></div>
     <motion.button className="card sim-item" onClick={openSim} whileTap={{ scale: 0.98 }}><span className="sim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 18V9M10 18V5M16 18v-6M22 18H2" /></svg></span>
@@ -302,15 +319,15 @@ function Plan({ data, openSim, upd, goForecast }: { data: Data; openSim: () => v
       {s.items && <ul>{s.items.map((x, j) => <li key={j}>{x}</li>)}</ul>}
       {s.id === 'recv' && <div className="recv-step"><ModeToggle mode={data.settings.recvMode === 'garantido' ? 'garantido' : 'ponderado'} onChange={m => upd({ settings: { ...data.settings, recvMode: m } })} />
         <button className="link" onClick={goForecast}>Ver previsão de recebimentos →</button></div>}<Disc /></div></motion.div>)}
-    {p.payoff && <div className="card"><h3>Projeção de quitação das dívidas</h3>
-      <p className="hint">Saldo devedor total mês a mês, com {brl(p.payoff.budget)}/mês para dívidas.</p>
+    {p.payoff && <div className="card"><h3>Quando suas dívidas acabam</h3>
+      <p className="hint">Quanto falta pagar (somando todas as dívidas) mês a mês, com {brl(p.payoff.budget)}/mês para dívidas. O app recomenda <b>{STRATEGY[rec].name.toLowerCase()}</b>: {STRATEGY[rec].how}.</p>
       <ResponsiveContainer width="100%" height={240}><LineChart data={line}><CartesianGrid strokeDasharray="3 3" stroke="rgba(247,183,49,.08)" /><XAxis dataKey="mes" {...AX} /><YAxis width={58} {...AXY} />
         <Tooltip {...TT} formatter={(v) => brl(Number(v))} labelFormatter={l => `Mês ${l}`} /><Legend formatter={legendFmt} wrapperStyle={{ paddingTop: 6 }} />
-        <Line dataKey="Avalanche" stroke="#f7b731" dot={false} strokeWidth={2.5} animationDuration={1400} /><Line dataKey="Bola de neve" stroke={CH.silver} strokeDasharray="6 4" dot={false} strokeWidth={2.25} animationDuration={1400} /></LineChart></ResponsiveContainer>
-      <table><thead><tr><th>Dívida (avalanche)</th><th>Juros</th><th>Quitada no mês</th></tr></thead><tbody>
-        {order(data.debts, 'avalanche').map(d => <tr key={d.id}><td>{d.name}</td><td>{fmtAm(d.rate)}</td><td>{p.payoff!.av.payoff[d.id] ?? '—'}</td></tr>)}</tbody></table><Disc />
+        <Line dataKey={N1} stroke="#f7b731" dot={false} strokeWidth={2.5} animationDuration={1400} /><Line dataKey={N2} stroke={CH.silver} strokeDasharray="6 4" dot={false} strokeWidth={2.25} animationDuration={1400} /></LineChart></ResponsiveContainer>
+      <table><thead><tr><th>Ordem recomendada</th><th>Juros</th><th>Quitada em</th></tr></thead><tbody>
+        {order(data.debts, rec).map(d => <tr key={d.id}><td>{d.name}</td><td>{fmtAm(d.rate)}</td><td>{recRes!.payoff[d.id] ? `mês ${recRes!.payoff[d.id]}` : '—'}</td></tr>)}</tbody></table><Disc />
     </div>}
-    <p className="disc">Estimativas simplificadas (juros compostos mensais, sem IOF/multas). Confirme valores com seu banco.</p>
+    <p className="disc">Estimativas simplificadas (juros mês a mês, sem impostos, tarifas ou multas). Confirme os valores com seu banco.</p>
   </>;
 }
 
@@ -339,7 +356,7 @@ function Goals({ data, upd }: { data: Data; upd: (p: Partial<Data>) => void }) {
       <div className="row"><input value={g.name} onChange={e => set(g.id, { name: e.target.value })} />
         <button className="x" onClick={() => upd({ isExample: false, goals: data.goals.filter(x => x.id !== g.id) })}>✕</button></div>
       <div className="row wrap">
-        <label>Tipo<select value={g.type} onChange={e => { const t = e.target.value as GoalType; set(g.id, { type: t, retire: t === 'aposentadoria' ? (g.retire ?? { monthlyIncome: 3000, age: 30, retireAge: 65, rate: 0.5 }) : g.retire }); }}>
+        <label>Tipo<select value={g.type} onChange={e => { const t = e.target.value as GoalType; set(g.id, { type: t, retire: t === 'aposentadoria' ? (g.retire ?? newRetire(30)) : g.retire }); }}>
           {Object.entries(GOAL_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label>Prioridade<select value={g.priority} onChange={e => set(g.id, { priority: e.target.value as Priority })}>
           {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
@@ -349,21 +366,28 @@ function Goals({ data, upd }: { data: Data; upd: (p: Partial<Data>) => void }) {
         <label>Renda mensal desejada<MoneyInput label="Renda mensal desejada" value={g.retire.monthlyIncome} onChange={n => set(g.id, { retire: { ...g.retire!, monthlyIncome: n ?? 0 } })} /></label>
         <label>Idade atual<input type="number" value={g.retire.age || ''} onChange={e => set(g.id, { retire: { ...g.retire!, age: num(e.target.value) } })} /></label>
         <label>Aposentar aos<input type="number" value={g.retire.retireAge || ''} onChange={e => set(g.id, { retire: { ...g.retire!, retireAge: num(e.target.value) } })} /></label>
-        <label>Rendimento real % a.m.<input type="number" step="0.1" value={g.retire.rate || ''} onChange={e => set(g.id, { retire: { ...g.retire!, rate: num(e.target.value) } })} /></label>
       </div> : <div className="row wrap">
         <label>Valor do objetivo<MoneyInput label="Valor do objetivo" value={g.target} onChange={n => set(g.id, { target: n ?? 0 })} /></label>
         <label>Data alvo<input type="month" value={g.date} onChange={e => set(g.id, { date: e.target.value })} /></label>
       </div>}
+      {g.type === 'aposentadoria' && g.retire && <Adv note="rendimento">
+        <label className="f-n">Quanto o dinheiro rende acima da inflação (% ao ano)<input type="text" inputMode="decimal" autoComplete="off" aria-label="Rendimento acima da inflação, % ao ano"
+          defaultValue={(Math.round(amToAa(g.retire.rate) * 10) / 10).toLocaleString('pt-BR')} key={`${g.id}-${g.retire.rateSet ? 's' : 'd'}`}
+          onChange={e => { const v = num(e.target.value); if (v > 0 && v <= 30) set(g.id, { retire: { ...g.retire!, rate: Math.round(aaToAm(v) * 10000) / 10000, rateSet: true } }); }} /></label>
+        <small className="fhint">Padrão: {DEFAULT_REAL_AA}% ao ano, conservador. Quanto maior, menos você precisa guardar — mas promete mais do que talvez aconteça.</small>
+        {g.retire.rateSet && <button className="link" onClick={() => set(g.id, { retire: { ...g.retire!, rate: DEFAULT_REAL_AM, rateSet: false } })}>voltar ao padrão ({DEFAULT_REAL_AA}% ao ano)</button>}
+      </Adv>}
       <div className={`finding ${fits ? 'good' : 'warn'}`}>
         {g.type === 'aposentadoria' && g.retire && <p>Para viver de {brl(g.retire.monthlyIncome)}/mês (valores de hoje) você precisa juntar cerca de <b>{brl(target)}</b> até os {g.retire.retireAge} anos ({Math.round(months / 12)} anos).</p>}
+        {g.type === 'aposentadoria' && g.retire && <p className="prev-note rate-note">{g.retire.rateSet ? `Consideramos que o dinheiro guardado rende ${(Math.round(amToAa(g.retire.rate) * 10) / 10).toLocaleString('pt-BR')}% ao ano acima da inflação (valor que você ajustou).` : `Consideramos que o dinheiro guardado rende cerca de ${DEFAULT_REAL_AA}% ao ano acima da inflação — uma estimativa conservadora, para não prometer demais.`}</p>}
         <b>Guardar {brl(need)}/mês {g.type !== 'aposentadoria' && `por ${months} meses`}</b>
-        {prev && <p className="prev-note">Já considera {brl(prev.saved)} da sua previdência{prev.monthly > 0 ? ` e o aporte de ${brl(prev.monthly)}/mês que já está nos seus gastos (por isso “guardar” é só o que falta além dele)` : ''}.{prev.outOfBudget > 0 ? ` O aporte de ${brl(prev.outOfBudget)}/mês ainda não conta: lance-o em Gastos (Meus dados › Patrimônio) para entrar no plano.` : ''}</p>}
-        {lump > 0 && <p className="lump-note">Já considera {brl(Math.round(lump))} de receitas futuras ({data.settings.recvMode === 'garantido' ? 'garantidas' : 'valor ponderado'}) até a data. Só conte com elas quando o dinheiro cair.</p>}
+        {prev && <p className="prev-note">Já considera {brl(prev.saved)} da sua previdência{prev.monthly > 0 ? ` e os ${brl(prev.monthly)}/mês que você já põe nela, que já estão nos seus gastos — por isso “guardar” é só o que falta além disso` : ''}.{prev.outOfBudget > 0 ? ` Os ${brl(prev.outOfBudget)}/mês que você põe nela ainda não contam: marque “Lançar também em Gastos” em Meus dados › Patrimônio para entrar no plano.` : ''}</p>}
+        {lump > 0 && <p className="lump-note">Já considera {brl(Math.round(lump))} de receitas futuras até a data ({data.settings.recvMode === 'garantido' ? 'só o dinheiro certo' : 'contando só parte do que não é certo'}). Só conte com elas quando o dinheiro cair.</p>}
         <p>{fits ? '✅ Cabe no seu orçamento livre atual.' : `⚠️ Não cabe agora: sobram ${brl(allocated)}/mês para este objetivo (pela ordem de prioridade).`}</p>
         {alt && <ul>
           {g.type === 'aposentadoria'
-            ? (ev.hasDebts && allocatedAfter >= need ? <li>Depois de quitar as dívidas, aportar {brl(need)}/mês já cabe — comece com o que puder agora e aumente depois.</li>
-              : alt.extendMonths > 0 && <li>Com seus aportes possíveis, leva cerca de {Math.round(alt.extendMonths / 12)} anos — considere adiar um pouco a aposentadoria.</li>)
+            ? (ev.hasDebts && allocatedAfter >= need ? <li>Depois de quitar as dívidas, guardar {brl(need)}/mês já cabe — comece com o que puder agora e aumente depois.</li>
+              : alt.extendMonths > 0 && <li>Guardando o que cabe hoje, leva cerca de {Math.round(alt.extendMonths / 12)} anos — considere adiar um pouco a aposentadoria.</li>)
             : alt.extendMonths > 0 ? <li>Estender o prazo para {fmtYm(alt.extendTo)} ({alt.extendMonths} meses){ev.hasDebts && ev.payoffMonths ? ', usando a folga que aparece depois de quitar as dívidas' : ''}.</li>
             : <li>Adiar este objetivo até sair das dívidas.</li>}
           {alt.reduceTo > g.saved + 1 && <li>{g.type === 'aposentadoria' ? `Reduzir a renda desejada para ~${brl(alt.reduceTo)}/mês.` : `Reduzir o valor para ~${brl(alt.reduceTo)} mantendo a data.`}</li>}

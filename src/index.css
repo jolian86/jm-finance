@@ -441,3 +441,28 @@ input.due::-webkit-inner-spin-button,input.due::-webkit-outer-spin-button{-webki
 .prev-note{font-size:12.5px;color:var(--muted);margin:6px 0 0}
 .asset-grid select{padding-left:10px;padding-right:6px;font-size:14px}
 .asset.long .fgrid>.f-type{flex-basis:100%}
+/* ---- v11: linguagem simples, ajustes opcionais ---- */
+.exp-l2 .exp-cat{flex:1 1 auto}
+@container (min-width:400px){.exp-l2 .exp-cat{flex:0 1 13rem}}
+.kind-chip{flex:none;border:1px dashed var(--line2);background:none;color:var(--faint);font:500 12px var(--sans);padding:7px 9px;border-radius:999px;cursor:pointer;line-height:1}
+.kind-chip.set{border-style:solid;color:var(--muted)}
+.kind-chip[aria-expanded=true]{border-color:var(--g2);color:var(--text)}
+.kind-adj{margin:8px 0 2px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--line2);display:flex;flex-direction:column;gap:6px}
+.kind-adj small{color:var(--faint);font-size:12px}.kind-adj .chk-line{margin:0;font-size:13px}.kind-adj .link{align-self:flex-start;font-size:12.5px;padding:0}
+.adv{margin:10px 0 4px;border-top:1px dashed var(--line2);padding-top:6px}
+.adv-toggle{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:6px 0;color:var(--muted);font:500 13px var(--sans);cursor:pointer;text-align:left}
+.adv-toggle small{color:var(--faint);font-size:11.5px;font-weight:400;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adv-toggle .adv-chev{margin-left:auto;transition:transform .2s;font-size:11px}.adv.open .adv-chev{transform:rotate(180deg)}
+.adv-body{padding:6px 0 2px;display:flex;flex-direction:column;gap:8px}.adv-body>label{margin-bottom:0}
+.adv-body .link{align-self:flex-start;font-size:12.5px;padding:0}
+.mode-toggle{align-items:flex-start;margin:4px 0 12px}.mode-toggle input{margin-top:2px}
+.mode-toggle span{display:flex;flex-direction:column;gap:2px}.mode-toggle small{color:var(--faint);font-size:12px;font-weight:400}
+.recv-step .mode-toggle{margin-bottom:4px}
+.pay-hint{display:block;margin:6px 0 2px}
+.cert-pick button small{text-align:center;line-height:1.25}
+.goal .adv .f-n{max-width:22rem}
+@media (max-width:370px){.money input{padding-left:2rem;padding-right:7px}.money-pre{left:.65rem}}
+.sim-form label>input,.sim-form label>select{flex:0 0 auto}
+.fgrid>label>.money,.fgrid>label>input,.fgrid>label>select,.fgrid>label>.dayf{margin-top:auto}
+.recv-form small.fhint{display:block;line-height:1.45;margin:-4px 0 12px}
+.fgrid>label>.money{flex:0 0 auto}

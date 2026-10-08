@@ -1,7 +1,7 @@
 // Relatório em PDF gerado 100% no aparelho (jsPDF). Fundo claro para impressão, faixa preta + dourado da marca.
 import { jsPDF } from 'jspdf';
 import logoUrl from './assets/jm-mark-pdf.jpg';
-import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, DISCLAIMER, Category, brl, diagnose, actionPlan, evaluateGoals, monthsUntil , fmtAm } from './finance';
+import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, DISCLAIMER, Category, brl, diagnose, actionPlan, evaluateGoals, monthsUntil, fmtAm, STRATEGY } from './finance';
 import { ymTitle, ymShort, plannedByCategory, series, deltas } from './history';
 import { allOccurrences, isOpen, CERT, RECV_TYPES, fmtOccDate, lumpSentence } from './recv';
 
@@ -117,10 +117,10 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
   const ind: [string, string, string, RGB?][] = [
     ['Renda mensal', brl0(r.income), 'tudo o que entra'],
     ['Gastos do orçamento', brl0(r.expenses), 'contas e despesas'],
-    ['Parcelas de dívidas', brl0(r.minPayments), 'pagamentos mínimos'],
+    ['Parcelas de dívidas', brl0(r.minPayments), 'pagamentos do mês'],
     ['Saldo do mês', brl0(r.balance), r.balance < 0 ? 'falta dinheiro' : 'sobra', r.balance < 0 ? LV['crítico'] : LV['saudável']],
-    ['Renda comprometida', pctf(r.commitment), 'gastos + parcelas', r.commitment > 1 ? LV['crítico'] : undefined],
-    ['Parcelas / renda', pctf(r.dti), 'ideal: até 30%', r.dti > 0.3 ? LV['atenção'] : undefined],
+    ['Renda já comprometida', pctf(r.commitment), 'com gastos e parcelas', r.commitment > 1 ? LV['crítico'] : undefined],
+    ['Renda que vai p/ parcelas', pctf(r.dti), 'ideal: até 15%', r.dti > 0.3 ? LV['crítico'] : r.dti > 0.15 ? LV['atenção'] : undefined],
     ['Reserva de emergência', `${f1(r.reserveMonths)} meses`, 'ideal: 6 meses', r.reserveMonths < 1 ? LV['crítico'] : undefined],
     ['Juros pagos por mês', brl0(r.monthlyInterest), 'custo das dívidas', r.monthlyInterest > 0 ? LV['atenção'] : undefined],
   ];
@@ -136,12 +136,12 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
   y += 2 * (bh + 3) + 1; disc();
 
   // ---------- Patrimônio ----------
-  section('Patrimônio', 40);
-  para(`Bens: ${brl0(r.totalAssets)} (disponível rápido: ${brl0(r.liquidAssets)}) · Reserva: ${brl0(d.reserve)} · Dívidas: ${brl0(r.totalDebt)} · Patrimônio líquido: ${brl0(r.netWorth)}`, 9.6);
+  section('O que você tem', 40);
+  para(`Bens: ${brl0(r.totalAssets)} (disponível rápido: ${brl0(r.liquidAssets)}) · Reserva: ${brl0(d.reserve)} · Dívidas: ${brl0(r.totalDebt)} · Quanto você tem de verdade (bens - dívidas): ${brl0(r.netWorth)}`, 9.6);
   y += 2;
   if (d.assets.length) table([{ h: 'Bem', w: 70 }, { h: 'Tipo', w: 50 }, { h: 'Acesso', w: 28, a: 'c' }, { h: 'Valor', w: CW - 148, a: 'r' }],
     d.assets.map(a => [a.name, ASSET_TYPES[a.type].label, ASSET_TYPES[a.type].liquid ? 'Rápido' : 'Longo prazo', brl0(a.value)]),
-    { total: ['Patrimônio líquido (bens + reserva - dívidas)', '', '', brl0(r.netWorth)], tone: [...d.assets.map(() => []), [undefined, undefined, undefined, r.netWorth < 0 ? LV['crítico'] : INK]] });
+    { total: ['Quanto você tem de verdade (bens + reserva - dívidas)', '', '', brl0(r.netWorth)], tone: [...d.assets.map(() => []), [undefined, undefined, undefined, r.netWorth < 0 ? LV['crítico'] : INK]] });
   else para('Nenhum bem cadastrado.', 9, MUTED);
   disc();
 
@@ -149,10 +149,10 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
   section('Dívidas', 40);
   if (d.debts.length) {
     const ds = [...d.debts].sort((a, b) => b.rate - a.rate);
-    table([{ h: 'Dívida', w: 46 }, { h: 'Tipo', w: 34 }, { h: 'Saldo', w: 28, a: 'r' }, { h: 'Juros a.m.', w: 22, a: 'r' }, { h: 'Parcela', w: 24, a: 'r' }, { h: 'Vence', w: CW - 154, a: 'c' }],
-      ds.map(x => [x.name, DEBT_TYPES[x.type], brl0(x.balance), fmtAm(x.rate).replace(' a.m.', ''), brl0(x.minPayment), x.dueDay ? `dia ${x.dueDay}` : '-']),
+    table([{ h: 'Dívida', w: 46 }, { h: 'Tipo', w: 34 }, { h: 'Falta pagar', w: 28, a: 'r' }, { h: 'Juros/mês', w: 22, a: 'r' }, { h: 'Parcela', w: 24, a: 'r' }, { h: 'Vence', w: CW - 154, a: 'c' }],
+      ds.map(x => [x.name, DEBT_TYPES[x.type], brl0(x.balance), fmtAm(x.rate).replace(' ao mês', '') + (x.rateMode === 'media' ? '*' : ''), brl0(x.minPayment), x.dueDay ? `dia ${x.dueDay}` : '-']),
       { total: ['Total', '', brl0(r.totalDebt), '', brl0(r.minPayments), ''], tone: ds.map(x => [undefined, undefined, undefined, x.rate >= 5 ? LV['crítico'] : x.rate >= 2.5 ? LV['atenção'] : undefined]) });
-    para('Ordenadas da maior para a menor taxa de juros (as em vermelho são as mais caras).', 8.2, MUTED);
+    para(`Ordenadas da maior para a menor taxa de juros (as em vermelho são as mais caras).${ds.some(x => x.rateMode === 'media') ? ' * Taxa estimada pela média do mercado (Banco Central).' : ''}`, 8.2, MUTED);
   } else para('Nenhuma dívida cadastrada. Ótimo!', 9.5, LV['saudável']);
   disc();
 
@@ -186,8 +186,9 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
     y += 2.5;
   });
   if (plan.payoff) {
-    const { av, sb, budget } = plan.payoff;
-    para(`Projeção de quitação com ${brl0(budget)}/mês para dívidas: Avalanche (maior juro primeiro) ${av.feasible ? `${av.months} meses, ${brl0(av.interest)} de juros` : 'não quita em 10 anos'}; Bola de neve (menor saldo primeiro) ${sb.feasible ? `${sb.months} meses, ${brl0(sb.interest)} de juros` : 'não quita em 10 anos'}.`, 9.2);
+    const { av, sb, budget, rec } = plan.payoff;
+    const one = (s: 'avalanche' | 'snowball', x: typeof av) => `${STRATEGY[s].name} (${STRATEGY[s].how}): ${x.feasible ? `${x.months} meses, ${brl0(x.interest)} de juros` : 'não quita em 10 anos'}`;
+    para(`Quando as dívidas acabam, com ${brl0(budget)}/mês para dívidas - recomendado: ${one(rec, rec === 'avalanche' ? av : sb)}. Outra opção: ${one(rec === 'avalanche' ? 'snowball' : 'avalanche', rec === 'avalanche' ? sb : av)}.`, 9.2);
   }
   disc();
 
@@ -195,11 +196,11 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
   if (d.receivables.length) {
     section('Receitas futuras (12 meses)', 40);
     const fc = plan.recv.fc;
-    para(`Previsto: ${brl0(fc.expected)} · ponderado pela chance de receber: ${brl0(fc.weighted)} · garantido: ${brl0(fc.guaranteed)}. O plano usa ${plan.recv.mode === 'garantido' ? 'só o valor garantido' : 'o valor ponderado'}.`, 9.4);
+    para(`Pode entrar: ${brl0(fc.expected)} · certo: ${brl0(fc.guaranteed)} · o plano conta com ${brl0(plan.recv.mode === 'garantido' ? fc.guaranteed : fc.weighted)} (${plan.recv.mode === 'garantido' ? 'só o dinheiro certo' : 'todo o certo, 70% do provável e 30% do incerto, por segurança'}).`, 9.4);
     y += 2;
     const occ = allOccurrences(d).filter(isOpen).slice(0, 14);
-    table([{ h: 'Recebimento', w: 62 }, { h: 'Tipo', w: 36 }, { h: 'Quando', w: 22, a: 'c' }, { h: 'Líquido', w: 26, a: 'r' }, { h: 'Certeza', w: CW - 146 }],
-      occ.map(o => [o.recv.name + (o.inst.label ? ` (${o.inst.label})` : ''), RECV_TYPES[o.recv.type].label, fmtOccDate(o.ym, o.day), brl0(o.net), o.status === 'atrasado' ? 'ATRASADO' : `${CERT[o.certainty].label}${o.certainty !== 'garantido' ? ` ${o.prob}%` : ''}`]),
+    table([{ h: 'Recebimento', w: 62 }, { h: 'Tipo', w: 36 }, { h: 'Quando', w: 22, a: 'c' }, { h: 'Cai na conta', w: 26, a: 'r' }, { h: 'Vem?', w: CW - 146 }],
+      occ.map(o => [o.recv.name + (o.inst.label ? ` (${o.inst.label})` : ''), RECV_TYPES[o.recv.type].label, fmtOccDate(o.ym, o.day), brl0(o.net), o.status === 'atrasado' ? 'ATRASADO' : CERT[o.certainty].label]),
       { tone: occ.map(o => [undefined, undefined, undefined, undefined, o.status === 'atrasado' ? LV['crítico'] : o.certainty === 'incerto' ? MUTED : undefined]) });
     plan.recv.lumpsFull.filter(l => l.occ.recv.recurrence !== 'monthly').slice(0, 5).forEach(l => { ensure(6); col(GOLD_M, 'fill'); doc.circle(M + 1.4, y + 2.5, 0.65, 'F'); para(lumpSentence(l), 8.8, INK, M + 4, CW - 4, 1.3); });
     para('Nunca gaste dinheiro incerto antes de ele cair na conta.', 8.8, LV['crítico']);
@@ -210,7 +211,7 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
   section('Objetivos', 36);
   if (goals.results.length) {
     table([{ h: 'Objetivo', w: 40 }, { h: 'Tipo', w: 30 }, { h: 'Meta', w: 27, a: 'r' }, { h: 'Guardado', w: 25, a: 'r' }, { h: 'Prazo', w: 22, a: 'c' }, { h: 'Situação', w: CW - 144 }],
-      goals.results.map(g => [g.goal.name, GOAL_TYPES[g.goal.type], brl0(g.target), `${brl0(g.goal.saved)} (${pctf(g.progress)})`, g.goal.retire ? `aos ${g.goal.retire.retireAge} anos` : /^\d{4}-\d{2}$/.test(g.goal.date) ? ymShort(g.goal.date) : '-',
+      goals.results.map(g => [g.goal.name, GOAL_TYPES[g.goal.type], brl0(g.target), `${brl0(g.goal.saved + (g.prev?.saved ?? 0))} (${pctf(g.progress)})`, g.goal.retire ? `aos ${g.goal.retire.retireAge} anos` : /^\d{4}-\d{2}$/.test(g.goal.date) ? ymShort(g.goal.date) : '-',
         g.fits ? `No ritmo: ${brl0(g.need)}/mês` : `Precisa ajuste: ${brl0(g.need)}/mês (hoje cabem ${brl0(g.allocated)})`]),
       { tone: goals.results.map(g => [undefined, undefined, undefined, undefined, !g.goal.retire && /^\d{4}-\d{2}$/.test(g.goal.date) && monthsUntil(g.goal.date) <= 0 ? LV['crítico'] : undefined, g.fits ? LV['saudável'] : LV['atenção']]) });
   } else para('Nenhum objetivo cadastrado ainda.', 9, MUTED);
@@ -241,7 +242,7 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
     y += ch + 17;
     para(`* ${pts[pts.length - 1].label.replace('*', '')} = mês atual, ainda em andamento.`, 7.6, MUTED);
     const first = pts[0], last = pts[pts.length - 1];
-    para(`Resumo: de ${first.label} a ${last.label.replace('*', '')} a nota foi de ${first.score} para ${last.score}; a dívida total de ${brl0(first.totalDebt)} para ${brl0(last.totalDebt)}; o patrimônio líquido de ${brl0(first.netWorth)} para ${brl0(last.netWorth)}; a reserva de ${f1(first.reserveMonths)} para ${f1(last.reserveMonths)} meses.`, 9.2);
+    para(`Resumo: de ${first.label} a ${last.label.replace('*', '')} a nota foi de ${first.score} para ${last.score}; a dívida total de ${brl0(first.totalDebt)} para ${brl0(last.totalDebt)}; quanto você tem de verdade (bens - dívidas) de ${brl0(first.netWorth)} para ${brl0(last.netWorth)}; a reserva de ${f1(first.reserveMonths)} para ${f1(last.reserveMonths)} meses.`, 9.2);
     deltas(d).forEach(x => { ensure(6); font('helvetica', 'bold', 9); col(x.tone === 'good' ? LV['saudável'] : x.tone === 'bad' ? LV['crítico'] : MUTED); doc.text(x.tone === 'good' ? '+' : x.tone === 'bad' ? '-' : '·', M + 1, y + 3.6); para(x.text, 9, INK, M + 5, CW - 5); });
   }
   disc();

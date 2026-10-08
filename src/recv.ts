@@ -19,13 +19,14 @@ export type Receivable = {
 };
 export type RecvMode = 'ponderado' | 'garantido';
 
-export const CERT: Record<Certainty, { label: string; prob: number; color: string }> = {
-  garantido: { label: 'Garantido', prob: 100, color: '#f7b731' },
-  provavel: { label: 'Provável', prob: 70, color: '#c3c7cc' },
-  incerto: { label: 'Incerto', prob: 30, color: '#5c6672' },
+/** label = escolha na tela; word = adjetivo nas frases; prob = quanto o plano conta (por trás, nunca exigido do usuário). */
+export const CERT: Record<Certainty, { label: string; word: string; prob: number; color: string; plan: string }> = {
+  garantido: { label: 'Com certeza', word: 'certo', prob: 100, color: '#f7b731', plan: 'o plano conta com o valor inteiro' },
+  provavel: { label: 'Provavelmente', word: 'provável', prob: 70, color: '#c3c7cc', plan: 'o plano conta com 70% do valor' },
+  incerto: { label: 'Talvez', word: 'incerto', prob: 30, color: '#5c6672', plan: 'o plano conta só com 30% do valor' },
 };
 export const certFromProb = (p: number): Certainty => p >= 95 ? 'garantido' : p >= 50 ? 'provavel' : 'incerto';
-export const REC_LABEL: Record<Recurrence, string> = { once: 'Uma vez', monthly: 'Todo mês', yearly: 'Todo ano', custom: 'Parcelas' };
+export const REC_LABEL: Record<Recurrence, string> = { once: 'Só uma vez', monthly: 'Todo mês', yearly: 'Todo ano', custom: 'Em parcelas' };
 export const STATUS_LABEL: Record<RecvStatus, string> = { previsto: 'Previsto', recebido: 'Recebido', atrasado: 'Atrasado', cancelado: 'Cancelado' };
 
 type T = { label: string; group: string; cert: Certainty; discount: number; hint: string; art?: string };
@@ -197,7 +198,7 @@ export function lumpSentence(l: Lump, today = new Date()) {
   const acts = [...(paid.length ? [`quitar ${joinPt(paid)}`] : []), ...l.parts.filter(p => !(p.kind === 'debt' && p.payoff)).map(p => p.kind === 'debt' ? `abater ${brl0(p.amount)} do ${p.name}`
     : p.kind === 'reserve' ? `reforçar a reserva de emergência (${brl0(p.amount)})`
       : p.kind === 'goal' ? `guardar ${brl0(p.amount)} para o objetivo “${p.name}”` : `deixar ${brl0(p.amount)} livres (decida com calma)`)];
-  const cert = o.status === 'atrasado' ? 'atrasado' : CERT[o.certainty].label.toLowerCase();
+  const cert = o.status === 'atrasado' ? 'atrasado' : CERT[o.certainty].word;
   const tail = o.certainty === 'incerto' || o.status === 'atrasado' ? ' — só quando o dinheiro cair na conta' : '';
   return `Use ${occTitle(o)} de ${monthText(o, today)} (${brl0(o.net)} ${cert}) para ${joinPt(acts)}${tail}.`;
 }

@@ -17,7 +17,8 @@ export type FinancialSummary = {
   assets: { name: string; type: string; value: number; liquid: boolean }[];
   debts: { name: string; type: string; balance: number; ratePctMonth: number; minPayment: number; expensive: boolean }[];
   avalancheOrder: string[]; snowballOrder: string[];
-  payoff?: { monthlyBudget: number; avalancheMonths: number | null; avalancheInterest: number; snowballMonths: number | null; snowballInterest: number };
+  /** recommended: estratégia que o app recomenda. Nomes para o usuário: avalanche = "Economizar mais juros"; snowball = "Quitar primeiro as menores". */
+  payoff?: { monthlyBudget: number; avalancheMonths: number | null; avalancheInterest: number; snowballMonths: number | null; snowballInterest: number; recommended: 'avalanche' | 'snowball'; recommendedMonths: number | null };
   surplusAfterCuts: number; freeForGoals: number; freeAfterDebts: number; suggestedCuts: { name: string; current: number; suggested: number }[];
   goals: { name: string; type: string; target: number; saved: number; monthsLeft: number; monthlyNeed: number; fits: boolean; priority: string }[];
   planSteps: string[];

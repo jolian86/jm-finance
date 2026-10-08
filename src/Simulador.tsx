@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { Data, DISCLAIMER, brl, uid } from './finance';
-import { SIMS, SimId, simById, onDebtChange, Values, SimResult } from './sim';
+import { SIMS, SimId, simById, onDebtChange, Values, SimResult, Field } from './sim';
+import { Adv } from './ui';
 import { CH, AX, AXY, TT, legendFmt } from './chartTheme';
 
 const Disc = () => <p className="jm-disc">{DISCLAIMER}</p>;
@@ -37,15 +38,18 @@ function Scenario({ id, data, upd, goGoals }: { id: SimId; data: Data; upd: (p: 
   const res = useMemo(() => sim.run(data, v), [sim, data, v]);
   const set = (k: string, val: string) => setV(prev => k === 'debt' ? onDebtChange(id, data, { ...prev, debt: val }) : { ...prev, [k]: val });
   const fields = sim.fields(data);
-  return <>
-    <div className="card"><div className="sim-head"><span className="sim-ico">{ICONS[id]}</span><h3 style={{ margin: 0 }}>{sim.title}</h3></div>
-      <div className="sim-form">{fields.map(f => f.type === 'multi'
+  const renderField = (f: Field) => f.type === 'multi'
         ? <div key={f.key} className="sim-multi"><span className="lbl">{f.label}</span>{f.options!.map(o => { const on = (v[f.key] || '').split(',').includes(o.value);
             return <label key={o.value} className={`chk ${on ? 'on' : ''}`}><input type="checkbox" checked={on} onChange={() => { const s = new Set((v[f.key] || '').split(',').filter(Boolean)); if (on) s.delete(o.value); else s.add(o.value); set(f.key, [...s].join(',')); }} />{o.label}</label>; })}</div>
         : <label key={f.key}>{f.label}{f.suffix && <span className="suf"> ({f.suffix})</span>}
           {f.type === 'select' ? <select value={v[f.key]} onChange={e => set(f.key, e.target.value)}>{f.options!.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
-            : <input type="text" inputMode="decimal" autoComplete="off" value={v[f.key] ?? ''} onChange={e => { const t = e.target.value.replace(/[^\d.,]/g, ''); set(f.key, t); }} />}
-          {f.hint && <small className="fhint">{f.hint}</small>}</label>)}</div>
+            : <input type="text" inputMode="decimal" autoComplete="off" value={f.suffix?.startsWith('%') ? String(v[f.key] ?? '').replace(/^(\d+)\.(\d+)$/, '$1,$2') : v[f.key] ?? ''} onChange={e => { const t = e.target.value.replace(/[^\d.,]/g, ''); set(f.key, t); }} />}
+          {f.hint && <small className="fhint">{f.hint}</small>}</label>;
+  return <>
+    <div className="card"><div className="sim-head"><span className="sim-ico">{ICONS[id]}</span><h3 style={{ margin: 0 }}>{sim.title}</h3></div>
+      <div className="sim-form">{fields.filter(f => !f.advanced).map(renderField)}</div>
+      {fields.some(f => f.advanced) && <Adv note="juros já preenchidos"><div className="sim-form">{fields.filter(f => f.advanced).map(renderField)}</div>
+        <small className="fhint">Já vem preenchido com um valor comum. Só mude se souber o seu.</small></Adv>}
     </div>
     {'error' in res ? <div className="card"><div className="finding warn"><b>{res.error}</b></div></div> : <Result r={res} onSave={res.goal && !saved ? () => {
       const g = res.goal!; const t = new Date(); t.setMonth(t.getMonth() + g.months);
