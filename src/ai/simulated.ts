@@ -171,7 +171,19 @@ const HELP = 'Sou o Consultor JM (modo simulação). Posso analisar com seus nú
 
 export function simulatedReply(text: string, s: S): ChatReply {
   const r = route(text, s);
-  return typeof r === 'string' ? { content: r } : r;
+  const reply: ChatReply = typeof r === 'string' ? { content: r } : r;
+  // liga a resposta ao simulador correspondente, quando fizer sentido
+  const t = norm(text); const add = (a: ChatAction) => { reply.actions = [...(reply.actions ?? []), a]; };
+  if (s.hasData) {
+    if (/financi|parcel|compr/.test(t) && !/viag/.test(t)) add({ type: 'open_sim', label: 'Simular: financiar x juntar e comprar à vista', sim: 'financiar' });
+    if (/qual divida|pagar primeiro|quitar|renegoci|avalanche|bola de neve/.test(t)) {
+      if (s.debts.some(d => d.expensive)) add({ type: 'open_sim', label: 'Simular: consolidar dívidas / portabilidade', sim: 'consolidar' });
+      add({ type: 'open_sim', label: 'Simular: antecipar parcelas', sim: 'antecipar' });
+    }
+    if (/invest|aplicar|render/.test(t) && s.debts.length) add({ type: 'open_sim', label: 'Simular: quitar dívida x investir', sim: 'quitar-investir' });
+    if (/vermelho|sair d|endivid|apertad|nao sobra|cortar|economizar/.test(t)) add({ type: 'open_sim', label: 'Simular: cortar um gasto', sim: 'cortar' });
+  }
+  return reply;
 }
 function route(text: string, s: S): string | ChatReply {
   const t = norm(text);

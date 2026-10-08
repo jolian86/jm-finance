@@ -12,7 +12,8 @@ export function Bell({ count, onClick }: { count: number; onClick: () => void })
 
 const ICON = { bad: '!', warn: '!', info: 'i' };
 
-export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onCloseMonth, onClose }: {
+export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onCloseMonth, onClose, alertTime, onTime }: {
+  alertTime: string; onTime: (t: string) => void;
   alerts: Alert[]; dismissed: string[]; onDismiss: (id: string) => void; onRestore: () => void; onGo: (t: AlertTab) => void; onCloseMonth: () => void; onClose: () => void;
 }) {
   const [notif, setNotif] = useState(notifEnabled());
@@ -44,6 +45,9 @@ export function AlertsPanel({ alerts, dismissed, onDismiss, onRestore, onGo, onC
       <div className="notif-box">
         <div><b>Notificações no celular</b>
           <p>{notifSupported() ? 'Avisos aparecem quando você abrir o app. Em celulares Android com o app instalado, lembretes de vencimento também podem chegar com o app fechado (o sistema decide o horário). Avisos garantidos com o app fechado, em qualquer aparelho, vão precisar de um servidor de push no futuro.' : 'Este navegador não oferece notificações.'}</p></div>
+        <label className="time-row">Horário preferido dos avisos
+          <input type="time" value={alertTime} step={300} onChange={e => e.target.value && onTime(e.target.value)} aria-label="Horário preferido dos avisos" /></label>
+        <p className="fine">Antes desse horário o app não envia avisos. Hoje o horário é respeitado quando o app está aberto (ou é aberto depois dele) e, no Android com o app instalado, o sistema verifica em horários próprios — o aviso vem no primeiro horário possível depois do seu. Horário exato garantido só quando tivermos o servidor de push (ele já vai usar esta preferência).</p>
         {notifSupported() && <button className={`btn sm ${notif ? 'ghost' : ''}`} onClick={toggle}>{notif ? 'Desativar' : 'Ativar notificações'}</button>}
         {msg && <p className="hint" style={{ margin: 0 }}>{msg}</p>}
       </div>

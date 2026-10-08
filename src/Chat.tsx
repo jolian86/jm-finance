@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Data, DISCLAIMER, uid } from './finance';
 import { getProvider, buildSummary, ChatMessage, ChatAction } from './ai';
+import type { SimLink } from './ai/types';
 import mark from './assets/jm-mark-96.webp';
 
 const KEY = 'jmfinance:chat';
@@ -9,7 +10,7 @@ const CHIPS = ['Como sair do vermelho?', 'Qual dívida pagar primeiro?', 'Quero 
 const loadChat = (): ChatMessage[] => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 const bubble = { initial: { opacity: 0, y: 10, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { duration: 0.25 } };
 
-export default function Chat({ data, upd, onClose, goGoals }: { data: Data; upd: (p: Partial<Data>) => void; onClose: () => void; goGoals: () => void }) {
+export default function Chat({ data, upd, onClose, goGoals, openSim }: { data: Data; upd: (p: Partial<Data>) => void; onClose: () => void; goGoals: () => void; openSim: (s: SimLink) => void }) {
   const provider = useMemo(getProvider, []);
   const [msgs, setMsgs] = useState<ChatMessage[]>(loadChat);
   const [text, setText] = useState('');
@@ -28,6 +29,7 @@ export default function Chat({ data, upd, onClose, goGoals }: { data: Data; upd:
   }
 
   function runAction(msgId: string, a: ChatAction) {
+    if (a.type === 'open_sim') { openSim(a.sim); return; }
     if (a.type === 'create_goal') {
       upd({ isExample: false, goals: [...data.goals, { id: uid(), name: a.goal.name, type: a.goal.type, target: a.goal.target, date: a.goal.date, saved: 0, priority: 'media' }] });
       setMsgs(m => [...m.map(x => x.id === msgId ? { ...x, done: true } : x),
@@ -47,7 +49,7 @@ export default function Chat({ data, upd, onClose, goGoals }: { data: Data; upd:
         {provider.simulated && <p className="sim-note">Modo simulação: respostas automáticas baseadas em regras e nos seus dados. A IA real ainda não está conectada.</p>}
         <p className="jm-disc">{DISCLAIMER}</p></div>
       {msgs.map(m => <motion.div key={m.id} {...bubble} className={`msg ${m.role === 'user' ? 'me' : 'bot'}`}><p>{m.content}</p>
-        {m.actions && !m.done && <div className="msg-actions">{m.actions.map((a, i) => <button key={i} className="btn sm" onClick={() => runAction(m.id, a)}>{a.label}</button>)}</div>}
+        {m.actions && !m.done && <div className="msg-actions">{m.actions.map((a, i) => <button key={i} className={`btn sm ${a.type === 'open_sim' ? 'ghost' : ''}`} onClick={() => runAction(m.id, a)}>{a.label}{a.type === 'open_sim' ? ' →' : ''}</button>)}</div>}
         {m.done && <button className="link" onClick={goGoals}>Ver na aba Objetivos →</button>}
         {m.role === 'assistant' && <p className="jm-disc">{DISCLAIMER}</p>}</motion.div>)}
       {typing && <motion.div {...bubble} className="msg bot typing" aria-label="Consultor digitando"><span /><span /><span /></motion.div>}

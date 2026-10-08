@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
 import Evolucao from './Evolucao';
+import Simulador from './Simulador';
+import type { SimId } from './sim';
 import { Bell, AlertsPanel, Modal } from './AlertsCenter';
 import { computeAlerts, notifyNew, saveReminders, AlertTab } from './alerts';
 import { closeMonth, needsClosing, fullExample, ymLong, ymTitle, ymShort, deltas, plannedByCategory } from './history';
@@ -9,7 +11,7 @@ import { AnimatedNumber, ScoreGauge, ProgressRing, BrandLockup, Splash, Icon } f
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, LineChart, Line, Legend, CartesianGrid } from 'recharts';
 import { Data, Category, DebtType, AssetType, GoalType, Priority, Goal, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, PRIORITIES, DISCLAIMER, brl, pct, uid, emptyData, thisMonth, diagnose, actionPlan, order, migrate, evaluateGoals } from './finance';
 
-type Tab = 'inicio' | 'dados' | 'diagnostico' | 'plano' | 'objetivos';
+type Tab = 'inicio' | 'dados' | 'diagnostico' | 'plano' | 'objetivos' | 'simulador';
 const KEY = 'jmfinance:data';
 // Paleta derivada do logo (dourados) para gráficos; vermelho/verde/âmbar só para status
 import { CH, COLORS, legendFmt, AX, AXY, TT, LEVEL_COLOR } from './chartTheme';
@@ -17,6 +19,17 @@ const brl0 = (n: number) => brl(Math.round(n));
 
 function load(): Data { try { return migrate(JSON.parse(localStorage.getItem(KEY) || '')) } catch { return emptyData() } }
 const Disc = () => <p className="jm-disc">{DISCLAIMER}</p>;
+function ExportBtn({ data }: { data: Data }) {
+  const [st, setSt] = useState<'idle' | 'busy' | 'done' | 'err'>('idle');
+  const run = async () => {
+    setSt('busy');
+    try { const m = await import('./report'); await m.exportReport(data); setSt('done'); setTimeout(() => setSt('idle'), 4000); }
+    catch (e) { console.error(e); setSt('err'); }
+  };
+  return <button className="btn ghost full export-btn" onClick={run} disabled={st === 'busy'}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
+    {st === 'busy' ? 'Gerando PDF…' : st === 'done' ? 'Relatório gerado ✓' : st === 'err' ? 'Não foi possível gerar — tente de novo' : 'Exportar relatório (PDF)'}</button>;
+}
 
 export default function App() {
   const [data, setData] = useState<Data>(load);
@@ -28,12 +41,14 @@ export default function App() {
   const [splash, setSplash] = useState(() => !sessionStorage.getItem('jm:splash') && !new URLSearchParams(location.search).has('nosplash'));
   const q0 = new URLSearchParams(location.search).get('tab');
   const [diagView, setDiagView] = useState<'hoje' | 'evolucao'>(q0 === 'evolucao' ? 'evolucao' : 'hoje');
+  const [simId, setSimId] = useState<SimId | undefined>(() => (new URLSearchParams(location.search).get('sim') as SimId) || undefined);
+  const openSim = (s?: SimId) => { setSimId(s); setChat(false); setTab('simulador'); window.scrollTo({ top: 0 }); };
   const go = (t: Tab | AlertTab) => { if (t === 'evolucao') { setDiagView('evolucao'); setTab('diagnostico'); } else { if (t === 'diagnostico') setDiagView('hoje'); setTab(t); } window.scrollTo({ top: 0 }); };
   // alertas
   const alerts = useMemo(() => computeAlerts(data), [data]);
   const unread = alerts.filter(a => !data.dismissedAlerts.includes(a.id)).length;
   const [alertsOpen, setAlertsOpen] = useState(() => new URLSearchParams(location.search).get('alertas') === '1');
-  useEffect(() => { const base = import.meta.env.BASE_URL; notifyNew(alerts.filter(a => !data.dismissedAlerts.includes(a.id)), base).catch(() => {}); saveReminders(alerts, data, base).catch(() => {}); }, [alerts]); // eslint-disable-line
+  useEffect(() => { const base = import.meta.env.BASE_URL; notifyNew(alerts.filter(a => !data.dismissedAlerts.includes(a.id)), base, data.settings.alertTime).catch(() => {}); saveReminders(alerts, data, base).catch(() => {}); }, [alerts, data.settings.alertTime]); // eslint-disable-line
   // fechar mês
   const [askClose, setAskClose] = useState(false);
   const [newMonthPrompt, setNewMonthPrompt] = useState(() => needsClosing(load(), thisMonth()) && !sessionStorage.getItem('jm:nm'));
@@ -46,24 +61,27 @@ export default function App() {
         <div className="head-right">{data.isExample && <span className="badge-ex">EXEMPLO</span>}<Bell count={unread} onClick={() => setAlertsOpen(true)} /></div></header>
       <main>
         <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
+          <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
             {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={setData} onCloseMonth={() => setAskClose(true)} />}
             {tab === 'dados' && <Inputs data={data} upd={upd} setData={setData} onCloseMonth={() => setAskClose(true)} />}
             {tab === 'diagnostico' && (hasData ? <>
+              <ExportBtn data={data} />
               <div className="seg" role="tablist">{(['hoje', 'evolucao'] as const).map(v => <button key={v} role="tab" aria-selected={diagView === v} className={diagView === v ? 'on' : ''} onClick={() => setDiagView(v)}>
                 {diagView === v && <motion.span layoutId="segpill" className="segpill" />}<span>{v === 'hoje' ? 'Hoje' : 'Evolução'}</span></button>)}</div>
               {diagView === 'hoje' ? <Diagnosis data={data} /> : <Evolucao data={data} onCloseMonth={() => setAskClose(true)} />}</> : <Empty go={go} />)}
-            {tab === 'plano' && (hasData ? <Plan data={data} /> : <Empty go={go} />)}
+            {tab === 'plano' && (hasData ? <Plan data={data} openSim={() => openSim()} /> : <Empty go={go} />)}
+            {tab === 'simulador' && (hasData ? <Simulador data={data} upd={upd} initial={simId} onBack={() => go('plano')} goGoals={() => go('objetivos')} /> : <Empty go={go} />)}
             {tab === 'objetivos' && <Goals data={data} upd={upd} />}
           </motion.div>
         </AnimatePresence>
       </main>
       {!chat && <motion.button className="fab" onClick={() => setChat(true)} aria-label="Consultor JM" whileTap={{ scale: 0.92 }} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: 'spring', stiffness: 260, damping: 18 }}>
         <Icon.chat /><span>Consultor</span></motion.button>}
-      <AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={() => setChat(false)} goGoals={() => { setChat(false); go('objetivos'); }} />}</AnimatePresence>
+      <AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={() => setChat(false)} goGoals={() => { setChat(false); go('objetivos'); }} openSim={s => openSim(s)} />}</AnimatePresence>
       <AnimatePresence>{alertsOpen && <AlertsPanel alerts={alerts} dismissed={data.dismissedAlerts}
         onDismiss={id => upd({ dismissedAlerts: [...data.dismissedAlerts, id] })} onRestore={() => upd({ dismissedAlerts: [] })}
-        onGo={t => { setAlertsOpen(false); go(t); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)} />}</AnimatePresence>
+        onGo={t => { setAlertsOpen(false); go(t); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)}
+        alertTime={data.settings.alertTime} onTime={t => upd({ settings: { ...data.settings, alertTime: t } })} />}</AnimatePresence>
       <AnimatePresence>{(askClose || newMonthPrompt) && <Modal title={newMonthPrompt && !askClose ? 'Começou um novo mês!' : `Fechar ${ymLong(data.month)}?`} confirm="Fechar mês"
         onConfirm={doClose} onCancel={() => { setAskClose(false); setNewMonthPrompt(false); sessionStorage.setItem('jm:nm', '1'); }}>
         {newMonthPrompt && !askClose && <p>Seus dados ainda estão em <b>{ymLong(data.month)}</b>. Quer fechar esse mês para guardar no histórico?</p>}
@@ -72,8 +90,8 @@ export default function App() {
       </Modal>}</AnimatePresence>
       <nav>
         {([['inicio', Icon.home, 'Início'], ['dados', Icon.edit, 'Meus dados'], ['diagnostico', Icon.pulse, 'Diagnóstico'], ['plano', Icon.compass, 'Plano'], ['objetivos', Icon.target, 'Objetivos']] as const).map(([k, I, l]) =>
-          <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)} aria-current={tab === k ? 'page' : undefined}>
-            {tab === k && <motion.span layoutId="navpill" className="navpill" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+          <button key={k} className={tab === k || (tab === 'simulador' && k === 'plano') ? 'on' : ''} onClick={() => go(k)} aria-current={tab === k ? 'page' : undefined}>
+            {(tab === k || (tab === 'simulador' && k === 'plano')) && <motion.span layoutId="navpill" className="navpill" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
             <span className="ni"><I /></span>{l}</button>)}
       </nav>
     </div>
@@ -103,6 +121,7 @@ function Home({ data, hasData, go, setData, onCloseMonth }: { data: Data; hasDat
         <Stat label="Reserva" n={r.reserveMonths} f={months} />
       </div>
       <button className="btn full" onClick={() => go('plano')}>Ver meu plano de ação →</button>
+      <ExportBtn data={data} />
       <div className="card evo-mini">
         <div className="evo-mini-head"><h3 style={{ margin: 0 }}>Sua evolução</h3><button className="link" onClick={() => go('evolucao')}>Ver gráficos →</button></div>
         {ds.length ? ds.map((x, i) => <div key={i} className={`delta ${x.tone}`}><span>{x.tone === 'good' ? '▲' : x.tone === 'bad' ? '▼' : '•'}</span>{x.text}</div>)
@@ -249,11 +268,13 @@ function Diagnosis({ data }: { data: Data }) {
   </>;
 }
 
-function Plan({ data }: { data: Data }) {
+function Plan({ data, openSim }: { data: Data; openSim: () => void }) {
   const p = useMemo(() => actionPlan(data), [data]);
   const line = p.payoff ? p.payoff.av.timeline.map((t, i) => ({ mes: t.mes, Avalanche: Math.round(t.saldo), 'Bola de neve': Math.round(p.payoff!.sb.timeline[i]?.saldo ?? 0) })) : [];
   return <>
     <div className="card"><h3>Seu plano de ação</h3><p className="hint">Siga na ordem. Cada etapa prepara a próxima.</p></div>
+    <motion.button className="card sim-item" onClick={openSim} whileTap={{ scale: 0.98 }}><span className="sim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 18V9M10 18V5M16 18v-6M22 18H2" /></svg></span>
+      <span><b>Simulador de decisões</b><small>Financiar ou juntar? Quitar ou investir? Antecipar, consolidar, cortar um gasto — compare lado a lado.</small></span><span className="sim-go">›</span></motion.button>
     {p.steps.map((s, i) => <motion.div className="card step" key={i} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.4, delay: Math.min(i, 3) * 0.05 }}><div className="n">{i + 1}</div><div><h3>{s.title}</h3><p>{s.text}</p>
       {s.items && <ul>{s.items.map((x, j) => <li key={j}>{x}</li>)}</ul>}<Disc /></div></motion.div>)}
     {p.payoff && <div className="card"><h3>Projeção de quitação das dívidas</h3>

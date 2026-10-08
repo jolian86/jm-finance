@@ -80,8 +80,18 @@ export async function enableNotifications(): Promise<NotificationPermission | 'u
 export const disableNotifications = () => localStorage.setItem('jmfinance:notif', '0');
 
 /** Mostra notificações locais para alertas novos (bad/warn) — uma vez por alerta por dia. Chamado ao abrir o app. */
-export async function notifyNew(alerts: Alert[], base: string) {
+/** Minutos até o horário preferido de hoje (<= 0 se já passou). */
+export function minutesUntil(alertTime: string, now = new Date()) {
+  const [h, m] = alertTime.split(':').map(Number);
+  return (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
+}
+let timer: ReturnType<typeof setTimeout> | undefined;
+/** Respeita o horário escolhido: antes dele, agenda (enquanto o app estiver aberto); depois, notifica. */
+export async function notifyNew(alerts: Alert[], base: string, alertTime = '09:00') {
   if (!notifEnabled()) return;
+  if (timer) clearTimeout(timer);
+  const wait = minutesUntil(alertTime);
+  if (wait > 0) { timer = setTimeout(() => { notifyNew(alerts, base, alertTime); }, wait * 60000 + 1000); return; }
   const today = new Date().toISOString().slice(0, 10);
   let seen: Record<string, string> = {}; try { seen = JSON.parse(localStorage.getItem(NKEY) || '{}'); } catch { /* */ }
   const reg = await navigator.serviceWorker.ready;
@@ -104,7 +114,7 @@ export async function saveReminders(_alerts: Alert[], d: Data, base: string) {
     return { key: `due-${b.id}-${iso(r.due)}-${r.stage}`, show: iso(r.show), due: iso(r.due), title: t.title, body: t.text, url: `${base}?tab=dados` };
   }));
   const c = await caches.open('jm-reminders');
-  await c.put('reminders.json', new Response(JSON.stringify({ enabled: notifEnabled(), reminders }), { headers: { 'Content-Type': 'application/json' } }));
+  await c.put('reminders.json', new Response(JSON.stringify({ enabled: notifEnabled(), alertTime: d.settings.alertTime, reminders }), { headers: { 'Content-Type': 'application/json' } }));
 }
 
 async function registerPeriodic() {

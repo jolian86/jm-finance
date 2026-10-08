@@ -1,6 +1,8 @@
 export type ChatRole = 'user' | 'assistant';
 /** Ação opcional sugerida pelo consultor (o usuário decide se executa). */
-export type ChatAction = { type: 'create_goal'; label: string; goal: { name: string; type: 'viagem' | 'compra' | 'reserva' | 'outro'; target: number; date: string } };
+export type SimLink = 'financiar' | 'quitar-investir' | 'antecipar' | 'consolidar' | 'cortar';
+export type ChatAction = { type: 'create_goal'; label: string; goal: { name: string; type: 'viagem' | 'compra' | 'reserva' | 'outro'; target: number; date: string } }
+  | { type: 'open_sim'; label: string; sim: SimLink };
 export type ChatMessage = { id: string; role: ChatRole; content: string; at: number; actions?: ChatAction[]; done?: boolean };
 export type ChatReply = { content: string; actions?: ChatAction[] };
 

@@ -24,7 +24,11 @@ export type Data = {
   actuals: Partial<Record<Category, number>>;
   history: Snapshot[];
   dismissedAlerts: string[];
+  /** preferências (o horário de alertas será usado também por um futuro servidor de push) */
+  settings: Settings;
 };
+export type Settings = { alertTime: string };
+export const DEFAULT_SETTINGS: Settings = { alertTime: '09:00' };
 export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'outros';
 
 export const CATEGORIES: Record<Category, { label: string; group: 'necessidade' | 'desejo' }> = {
@@ -56,7 +60,7 @@ export const pct = (n: number) => `${(n * 100).toLocaleString('pt-BR', { maximum
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
-export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [], month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [] });
+export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [], month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS } });
 // Migra dados antigos (sem assets/goals) sem quebrar
 export function migrate(raw: unknown): Data {
   const d = (raw && typeof raw === 'object' ? raw : {}) as Partial<Data>;
@@ -69,11 +73,12 @@ export function migrate(raw: unknown): Data {
     actuals: d.actuals && typeof d.actuals === 'object' ? d.actuals : {},
     history: arr<Snapshot>(d.history).filter(h => h && typeof h.month === 'string'),
     dismissedAlerts: arr<string>(d.dismissedAlerts),
+    settings: { ...DEFAULT_SETTINGS, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}), alertTime: /^\d{2}:\d{2}$/.test(String(d.settings?.alertTime)) ? String(d.settings!.alertTime) : DEFAULT_SETTINGS.alertTime },
   };
 }
 const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMonth() + monthsAhead); return t.toISOString().slice(0, 7); };
 export const exampleData = (): Data => ({
-  isExample: true, month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [],
+  isExample: true, month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS },
   reserve: 800,
   incomes: [{ id: uid(), name: 'Salário', amount: 4200 }, { id: uid(), name: 'Freela', amount: 1500 }],
   expenses: [
