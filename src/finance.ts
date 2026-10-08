@@ -105,9 +105,9 @@ export type RateSolve = { ok: true; rate: number; zero: boolean } | { ok: false;
 /** Taxa mensal implícita (Price): saldo = parcela × (1 − (1+i)^−n) / i. Bisseção; 0% quando parcela × n = saldo. */
 export function solveRate(balance: number, payment: number, n: number): RateSolve {
   const B = Number(balance) || 0, P = Number(payment) || 0, N = Math.round(Number(n) || 0);
-  if (B <= 0 || P <= 0 || N < 1) return { ok: false, msg: 'Preencha o saldo devedor, o valor da parcela e quantas parcelas faltam — o app calcula a taxa.' };
+  if (B <= 0 || P <= 0 || N < 1) return { ok: false, msg: 'Preencha quanto falta pagar, o valor da parcela e quantas parcelas faltam — o app calcula a taxa.' };
   const total = P * N, tol = Math.max(0.5, B * 0.0005);
-  if (total < B - tol) return { ok: false, msg: `As ${N} parcelas de ${brl(P)} somam ${brl(total)}, menos que o saldo devedor (${brl(B)}). Confira os valores: talvez faltem parcelas ou o saldo já tenha desconto.` };
+  if (total < B - tol) return { ok: false, msg: `As ${N} parcelas de ${brl(P)} somam ${brl(total)}, menos do que falta pagar (${brl(B)}). Confira os valores: talvez faltem parcelas ou o saldo já tenha desconto.` };
   if (Math.abs(total - B) <= tol) return { ok: true, rate: 0, zero: true };
   const pv = (i: number) => P * (1 - Math.pow(1 + i, -N)) / i;
   let lo = 1e-9, hi = 1;

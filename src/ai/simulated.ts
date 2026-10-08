@@ -179,7 +179,7 @@ export function simulatedReply(text: string, s: S): ChatReply {
   const t = norm(text); const add = (a: ChatAction) => { reply.actions = [...(reply.actions ?? []), a]; };
   if (s.hasData) {
     if (/financi|parcel|compr/.test(t) && !/viag/.test(t)) add({ type: 'open_sim', label: 'Simular: financiar x juntar e comprar à vista', sim: 'financiar' });
-    if (/qual divida|pagar primeiro|quitar|renegoci|avalanche|bola de neve/.test(t)) {
+    if (/qual divida|pagar primeiro|quitar|renegoci|avalanche|bola de neve|menores primeiro|economizar juros/.test(t)) {
       if (s.debts.some(d => d.expensive)) add({ type: 'open_sim', label: 'Simular: juntar dívidas em uma só, mais barata', sim: 'consolidar' });
       add({ type: 'open_sim', label: 'Simular: antecipar parcelas', sim: 'antecipar' });
     }
@@ -221,7 +221,7 @@ function route(text: string, s: S): string | ChatReply {
     const g = newGoal(s, text);
     return { content: base + '\n\nPrefere juntar antes de comprar? Posso criar um objetivo com prazo calculado pelo seu orçamento.', actions: g.actions?.slice(-1) };
   }
-  if (/qual divida|pagar primeiro|quitar|avalanche|bola de neve|renegoci/.test(t)) return whichDebt(s);
+  if (/qual divida|pagar primeiro|quitar|avalanche|bola de neve|menores primeiro|economizar juros|renegoci/.test(t)) return whichDebt(s);
   if (/invest|aplicar|render|tesouro|acoes|cdb/.test(t)) return invest(s);
   if (/meus objetivos|minhas metas|objetivos cabem|aposent/.test(t)) return goals(s);
   if (/viag|ferias|juntar|guardar para|guardar pra|quero (ter|fazer|comprar)|objetivo|meta|reserva de emergencia/.test(t)) return newGoal(s, text);
