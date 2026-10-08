@@ -13,7 +13,7 @@ export function buildSummary(d: Data): FinancialSummary {
     score: r.score, level: r.level,
     reserve: r.reserve, effReserve: r.effReserve, reserveMonths: r.reserveMonths, reserveTarget6m: (r.essentials + r.minPayments) * 6,
     totalAssets: r.totalAssets + r.reserve, liquidAssets: r.liquidAssets + r.reserve, netWorth: r.netWorth,
-    assets: d.assets.map(a => ({ name: a.name, type: ASSET_TYPES[a.type]?.label ?? a.type, value: a.value, liquid: a.liquid })),
+    assets: d.assets.map(a => ({ name: a.name, type: ASSET_TYPES[a.type]?.label ?? a.type, value: a.value, liquid: ASSET_TYPES[a.type]?.liquid ?? false })),
     debts: d.debts.map(x => ({ name: x.name, type: DEBT_TYPES[x.type], balance: x.balance, ratePctMonth: x.rate, minPayment: x.minPayment, expensive: expIds.has(x.id) })),
     avalancheOrder: order(d.debts, 'avalanche').map(x => x.name), snowballOrder: order(d.debts, 'snowball').map(x => x.name),
     payoff: p.payoff ? { monthlyBudget: p.payoff.budget, avalancheMonths: p.payoff.av.feasible ? p.payoff.av.months : null, avalancheInterest: p.payoff.av.interest,

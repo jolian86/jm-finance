@@ -57,7 +57,7 @@ export default function Evolucao({ data, onCloseMonth }: { data: Data; onCloseMo
           {GRID}<XAxis dataKey="label" {...AX} /><YAxis width={38} {...AX} tickFormatter={(n: number) => n.toLocaleString('pt-BR')} /><Tooltip {...TT} formatter={(v) => `${Number(v).toLocaleString('pt-BR')} meses`} />
           <Line dataKey="reserveMonths" name="Reserva" stroke={CH.champagne} strokeWidth={2.5} dot={{ r: 3, fill: CH.champagne }} animationDuration={1200} /></LineChart></ResponsiveContainer>
       </Card>
-      <Card title="Gastos por categoria" hint="Usa o gasto real lançado no mês; sem lançamento, o planejado.">
+      <Card title="Gastos por categoria" hint="Usa o “Gasto até agora” anotado no mês; sem anotação, o planejado.">
         <ResponsiveContainer width="100%" height={260}><BarChart data={pts} margin={{ top: 8, right: 8 }}>
           {GRID}<XAxis dataKey="label" {...AX} /><YAxis width={58} {...AXY} /><Tooltip {...brlTT} cursor={{ fill: 'rgba(247,183,49,.06)' }} />
           <Legend iconType="circle" iconSize={9} itemSorter={null} formatter={legendFmt} wrapperStyle={{ lineHeight: '20px', paddingTop: 6 }} />

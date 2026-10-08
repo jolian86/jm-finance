@@ -191,7 +191,6 @@ nav button.on{color:var(--g2);font-weight:700}
 .bbar{height:6px;border-radius:99px;background:rgba(247,183,49,.1);overflow:hidden;margin-top:8px}
 .bbar div{height:100%;border-radius:99px;background:var(--gold)}.bbar div.near{background:var(--warn)}.bbar div.over{background:var(--bad)}
 .bpct{font-size:11px;color:var(--muted)}.bpct.near{color:#fcd34d}.bpct.over{color:#fca5a5}
-input.due{flex:0 0 110px;min-width:110px}
 /* folhas/modais: portal no body, altura = área visível (dvh / visualViewport p/ teclado do iOS) */
 .sheet-wrap{position:fixed;left:0;right:0;top:0;top:var(--vvt,0px);height:100vh;height:100dvh;height:var(--vvh,100dvh);z-index:40;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;justify-content:center;align-items:flex-start;padding:calc(12px + env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));overscroll-behavior:contain}
 .sheet-wrap.center{align-items:center;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom))}
@@ -374,3 +373,71 @@ body.has-overlay .fab,body.kb-open .fab,body.kb-open nav{display:none}
 .occ-form{scroll-margin-bottom:calc(150px + env(safe-area-inset-bottom))}
 .sheet,.modal{scroll-padding-top:12px;scroll-padding-bottom:96px}
 .modal>.modal-actions .btn,.sheet>.modal-actions .btn{flex:1 1 auto;max-width:100%}.sheet>.modal-actions .danger-link{flex:none}
+
+/* ---- v10: proporções dos campos (valor largo, dia compacto) ---- */
+.money{position:relative;display:flex;flex:0 0 9rem;min-width:0}
+.money input{padding-left:2.15rem;padding-right:10px;text-align:right;font-variant-numeric:tabular-nums;width:100%;flex:1}
+.money-pre{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);font-size:12.5px;font-weight:600;color:var(--muted);pointer-events:none}
+.money.derived input{color:var(--g1);font-weight:700;background:rgba(247,183,49,.05)}
+.dayf{position:relative;display:flex;flex:0 0 4.25rem;width:4.25rem;min-width:0}
+.dayf input.due{width:100%;flex:1;padding:11px 6px;text-align:center;font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield}
+.dayf.pre input.due{padding-left:1.75rem;padding-right:6px;text-align:left}
+.dayf .day-pre{position:absolute;left:.45rem;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--faint);pointer-events:none}
+input.due::-webkit-inner-spin-button,input.due::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.money-row{align-items:center}.money-row .row-name{flex:1 1 auto;min-width:0}.money-row .x{flex:none}
+/* gastos: linha 1 nome · valor · ✕ / linha 2 categoria · fixo/variável · dia */
+.exp{container-type:inline-size;padding:0 0 10px;margin-bottom:10px;border-bottom:1px solid var(--line2)}
+.exp-l1,.exp-l2{display:flex;gap:8px;align-items:center;min-width:0}.exp-l1{margin-bottom:8px}
+.exp-l1 .row-name{flex:1 1 auto;min-width:0}.exp-l1 .x{flex:none;padding:10px}
+.exp-l2 select{min-width:0;font-size:14px;padding:10px 8px}.exp-l2 .exp-cat{flex:1.45 1 0}.exp-l2 .exp-kind{flex:1 1 0}
+.exp-l2 .dayf{flex-basis:4.25rem;width:4.25rem}
+@container (min-width:400px){.exp .money{flex-basis:9.5rem}.exp-l2 .exp-cat{flex:0 1 11rem}.exp-l2 .exp-kind{flex:0 1 8rem}.exp-l2{justify-content:flex-start}}
+/* grades rotuladas (dívidas, patrimônio) */
+.fgrid{display:flex;flex-wrap:wrap;gap:10px 8px;margin-bottom:4px}
+.fgrid>label{min-width:0;flex:1 1 8.5rem}
+.fgrid>.f-type{flex:1 1 14rem}.fgrid>.f-money{flex:1 1 8.5rem}.fgrid>.f-rate{flex:0 1 7rem}.fgrid>.f-day{flex:0 0 4.6rem}.fgrid>.f-liq{flex:1 1 7.5rem}
+.fgrid .money,.f-money .money,.goal .money,label>.money{flex:1 1 auto;width:100%}
+.fgrid .dayf{width:100%;flex:1 1 auto}
+.f-money.solo{max-width:16rem}
+.budget-top .money{grid-row:1/3;grid-column:2;flex:none;width:9rem}
+.cat-card{border:1px solid var(--line2);border-radius:14px;padding:12px;margin-bottom:12px;background:rgba(8,7,7,.25)}
+.cat-card.over{border-color:rgba(239,68,68,.45)}.cat-card.near{border-color:rgba(245,158,11,.45)}
+.cat-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px}.cat-head b{font-size:15px;color:var(--g1)}.cat-head small{color:var(--faint);font-size:11.5px;text-align:right}
+.cat-card .exp:last-of-type{border-bottom:0;margin-bottom:2px}
+.add-in-cat{font-size:12.5px;margin:0 0 4px;padding:4px 0}
+.cat-budget{margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)}
+.cat-cells{display:flex;gap:8px;align-items:stretch}
+.cat-cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:4px;font-size:12px;color:var(--muted);margin:0}
+.cat-cell b{font-size:16px;color:var(--text);font-variant-numeric:tabular-nums;padding:10px 0 9px;white-space:nowrap}
+.cat-cell .money{flex:0 0 auto;width:100%}
+.bbar div.ok,.bbar div.paid{background:linear-gradient(90deg,#c17925,#f7b731)}
+.cat-sentence{font-size:13px;line-height:1.45;color:#ddd0bb;margin:8px 0 2px}.cat-sentence b{color:var(--text)}
+.cat-sentence.near b{color:#fcd34d}.cat-sentence.over b{color:#fca5a5}.cat-sentence.none{color:var(--muted)}
+.paid-toggle{margin:8px 0 0;font-size:13px}
+.stat small.stat-sub{font-size:10.5px;color:var(--faint);margin:3px 0 0;line-height:1.3}
+.asset-auto{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.45}.asset-auto.yes{color:#bbf7d0}.asset-auto span{color:var(--muted)}
+.fgrid>.f-n{flex:0 1 8rem}.f-n input{text-align:center}
+.rate-box{margin-top:10px;padding:10px;border-radius:12px;border:1px dashed var(--line);background:rgba(247,183,49,.03)}
+.rate-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}.rate-top b{font-size:13px;color:var(--g1)}
+.seg.seg-xs{margin:0;padding:3px;border-radius:11px}.seg.seg-xs button{font-size:12px;padding:7px 10px;white-space:nowrap}.seg.seg-xs .segpill{border-radius:8px}
+.rate-top .seg-xs{flex:0 1 auto}
+.rate-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.rate-row .seg-xs{flex:1 1 11rem}
+.rate-in{position:relative;display:flex;flex:0 0 7.5rem;min-width:0}.rate-in input{padding-right:1.6rem;text-align:right;font-variant-numeric:tabular-nums}
+.rate-suf{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none}
+.rate-eq{margin:8px 0 2px;font-size:13px;color:var(--text);font-variant-numeric:tabular-nums}
+.rate-calc{margin:0 0 4px;font-size:13.5px;line-height:1.45}.rate-calc b{color:var(--g1)}.rate-calc small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.rate-calc.warn{color:#fcd34d;font-size:13px}
+.debt-end{margin:8px 0 0;font-size:12.5px;color:var(--muted)}.debt-end b{color:var(--text)}
+.rate-row .seg-xs{flex:1 1 9rem}
+.exp-l2 .exp-cat{flex:1.6 1 0}.exp-l2 select{font-size:13.5px}
+.cat-cell small{font-size:12px;color:var(--muted)}
+.asset.long{border-color:rgba(195,199,204,.25)}
+.asset-extra{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line2);display:flex;flex-direction:column;gap:6px}
+.asset-extra .chk-line{margin:0;align-items:flex-start;font-size:13px}.asset-extra .chk-line input{margin-top:2px}
+.asset-extra .chk-line input:disabled+span{color:var(--faint)}
+.fhint.warn{color:#fcd34d}
+.asset-goal{margin:2px 0 0;font-size:12.5px;color:#bbf7d0;line-height:1.5}.asset-goal .link{font-size:12.5px;padding:0}
+.asset-goal-btn{align-self:flex-start;font-size:13px;padding:2px 0}
+.prev-note{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+.asset-grid select{padding-left:10px;padding-right:6px;font-size:14px}
+.asset.long .fgrid>.f-type{flex-basis:100%}

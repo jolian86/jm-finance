@@ -182,7 +182,7 @@ for (const vp of VPS) {
   await shot('07-objetivos-teclado'); await kbOff();
   // 8) Simulador: formulário + fim da página
   await p.click('nav >> text=Plano'); await wait(800); await p.locator('.sim-item').click(); await wait(900); await p.locator('.sim-list .sim-item').first().click(); await wait(900);
-  await kbOn('main input[type=number] >> nth=-1'); await check('Simulador + teclado: último campo', 'main input[type=number] >> nth=-1'); await kbOff();
+  await kbOn('main input[inputmode="decimal"] >> nth=-1'); await check('Simulador + teclado: último campo', 'main input[inputmode="decimal"] >> nth=-1'); await kbOff();
   if (await p.locator('button:has-text("Salvar como objetivo")').count()) { await p.locator('button:has-text("Salvar como objetivo")').scrollIntoViewIfNeeded(); await wait(300); await check('Simulador: Salvar como objetivo', 'button:has-text("Salvar como objetivo")'); }
   await p.evaluate(() => scrollTo(0, 1e6)); await wait(500);
   const endGap = await p.evaluate(() => { const els = [...document.querySelectorAll('main .card, main .btn')]; const last = els[els.length - 1]; const nav = document.querySelector('nav').getBoundingClientRect(); const fab = document.querySelector('.fab')?.getBoundingClientRect(); return { lastBottom: Math.round(last.getBoundingClientRect().bottom), navTop: Math.round(nav.top), fabTop: fab ? Math.round(fab.top) : null }; });

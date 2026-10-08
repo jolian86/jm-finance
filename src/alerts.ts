@@ -1,5 +1,5 @@
 import { allOccurrences, fmtOccDate, CERT } from './recv';
-import { Data, Category, CATEGORIES, diagnose, evaluateGoals, brl, thisMonth } from './finance';
+import { Data, Category, CATEGORIES, diagnose, evaluateGoals, brl, thisMonth , fmtAm } from './finance';
 import { plannedByCategory, ymShort, needsClosing } from './history';
 import { billStage, BillStage, iso, br, upcomingReminders, nonBusinessReason } from './businessDays';
 
@@ -62,7 +62,7 @@ export function computeAlerts(d: Data, now = new Date()): Alert[] {
     else if (ratio >= 0.8 && ratio <= 1.005 && hasVariable && ratio < 1) out.push({ id: `cat-${c}-${d.month}-80`, level: 'warn', title: `${CATEGORIES[c].label}: ${Math.round(ratio * 100)}% do orçamento`, text: `Gasto real ${brl(a)} de ${brl(p)}. Restam ${brl(p - a)} para o resto do mês.`, tab: 'dados', cta: 'Ver gastos' });
   });
   // dívidas caras abertas
-  if (r.expensive.length) out.push({ id: `exp-${d.month}-${r.expensive.map(x => x.id).join('.')}`, level: 'warn', title: `${r.expensive.length === 1 ? 'Dívida cara' : `${r.expensive.length} dívidas caras`} em aberto`, text: `${r.expensive.map(x => `${x.name} (${x.rate}% a.m.)`).join(', ')}. Juros assim crescem rápido — o plano sugere priorizar renegociação e quitação.`, tab: 'plano', cta: 'Ver plano' });
+  if (r.expensive.length) out.push({ id: `exp-${d.month}-${r.expensive.map(x => x.id).join('.')}`, level: 'warn', title: `${r.expensive.length === 1 ? 'Dívida cara' : `${r.expensive.length} dívidas caras`} em aberto`, text: `${r.expensive.map(x => `${x.name} (${fmtAm(x.rate)})`).join(', ')}. Juros assim crescem rápido — o plano sugere priorizar renegociação e quitação.`, tab: 'plano', cta: 'Ver plano' });
   // reserva baixa
   if (r.reserveMonths < 1) out.push({ id: `res-${d.month}`, level: 'warn', title: 'Reserva abaixo de 1 mês', text: `Sua reserva cobre ${r.reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mês de custos. Um imprevisto pode virar dívida; uma mini-reserva ajuda a evitar isso.`, tab: 'diagnostico', cta: 'Ver diagnóstico' });
   // objetivos fora do trilho

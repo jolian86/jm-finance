@@ -52,7 +52,7 @@ function purchase(s: S, text: string) {
   lines.push(`1) Juntar e comprar à vista — ${cashTxt}.\n   ✅ Prós: sem juros, dá para negociar desconto. ❌ Contras: demora mais. ⚠️ Risco: baixo.`);
   lines.push(`2) ${isFin ? 'Financiar' : 'Parcelar'} — ex.: 24x a ~2% a.m. ≈ ${brl(parc24)}/mês (total ≈ ${brl(parc24 * 24)}). Isso levaria seu comprometimento de ${s.commitmentPct.toFixed(0)}% para ~${s.income ? ((s.expenses + s.minPayments + parc24) / s.income * 100).toFixed(0) : '?'}% da renda.\n   ✅ Prós: tem o bem agora. ❌ Contras: paga ${brl(parc24 * 24 - v)} de juros. ⚠️ Risco: ${parc24 > Math.max(0, s.surplusAfterCuts) ? 'ALTO — a parcela não cabe na sua sobra atual e pode gerar nova dívida.' : 'moderado — cabe, mas reduz sua folga para imprevistos.'}`);
   lines.push(`3) Adiar ou buscar opção mais barata (usado, modelo inferior, alugar/emprestar).\n   ✅ Prós: protege seu plano. ❌ Contras: abrir mão do desejo agora.`);
-  if (s.liquidAssets > 0) lines.push(`\nVocê tem ${brl(s.liquidAssets)} em ativos líquidos, mas eles também são sua reserva de emergência (${s.reserveMonths.toFixed(1)} meses). Usar para a compra reduz sua proteção.`);
+  if (s.liquidAssets > 0) lines.push(`\nVocê tem ${brl(s.liquidAssets)} disponível rápido (conta, poupança, resgate rápido), mas isso também é sua reserva de emergência (${s.reserveMonths.toFixed(1)} meses). Usar para a compra reduz sua proteção.`);
   return lines.join('\n') + END;
 }
 
@@ -146,7 +146,7 @@ function invest(s: S) {
 
 function assets(s: S) {
   if (!s.assets.length) return 'Você não cadastrou bens em "Meus dados → Patrimônio". Com eles eu consigo avaliar se vale usar algum para quitar dívidas.';
-  const l = [`Seu patrimônio total é ${brl(s.totalAssets)}, patrimônio líquido ${brl(s.netWorth)} e ${brl(s.liquidAssets)} são ativos líquidos.`];
+  const l = [`Seu patrimônio total é ${brl(s.totalAssets)}, patrimônio líquido ${brl(s.netWorth)} e ${brl(s.liquidAssets)} está disponível rápido (dinheiro que dá para usar em poucos dias).`];
   const exp = s.debts.filter(d => d.expensive);
   if (exp.length) {
     l.push(`\nVocê tem ${brl(exp.reduce((a, d) => a + d.balance, 0))} em dívidas caras. Opções:`);

@@ -1,5 +1,5 @@
 /** Simulador de decisões: cenários comparados lado a lado com os dados reais do usuário. Nunca decide pelo usuário. */
-import { Data, Debt, Category, CATEGORIES, diagnose, actionPlan, evaluateGoals, simulate, brl, uid } from './finance';
+import { Data, Debt, Category, CATEGORIES, diagnose, actionPlan, evaluateGoals, simulate, brl, uid , fmtAm } from './finance';
 
 export type SimId = 'financiar' | 'quitar-investir' | 'antecipar' | 'consolidar' | 'cortar';
 export type Field = { key: string; label: string; type: 'number' | 'select' | 'multi'; step?: number; suffix?: string; options?: { value: string; label: string }[]; hint?: string };
@@ -14,11 +14,11 @@ export type SimResult = {
 export type Values = Record<string, string>;
 export type Sim = { id: SimId; title: string; desc: string; icon: string; fields: (d: Data) => Field[]; defaults: (d: Data) => Values; run: (d: Data, v: Values) => SimResult | { error: string } };
 
-const n = (v: string | undefined, def = 0) => { const x = Number(String(v ?? '').replace(',', '.')); return Number.isFinite(x) ? x : def; };
+const n = (v: string | undefined, def = 0) => { let t = String(v ?? '').trim(); if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); const x = Number(t); return Number.isFinite(x) ? x : def; };
 const pmt = (pv: number, i: number, k: number) => i === 0 ? pv / k : pv * i / (1 - Math.pow(1 + i, -k));
 const pct = (x: number) => `${(x * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 const mo = (k: number | null) => k === null ? 'não quita' : `${k} ${k === 1 ? 'mês' : 'meses'}`;
-const debtOpts = (d: Data) => d.debts.map(x => ({ value: x.id, label: `${x.name} (${x.rate}% a.m.)` }));
+const debtOpts = (d: Data) => d.debts.map(x => ({ value: x.id, label: `${x.name} (${fmtAm(x.rate)})` }));
 const topDebt = (d: Data) => [...d.debts].sort((a, b) => b.rate - a.rate)[0];
 const freeNow = (d: Data) => { const p = actionPlan(d); return Math.max(0, p.surplus); };
 
@@ -161,7 +161,7 @@ const consolidar: Sim = {
     return {
       cols: ['Como está hoje', 'Consolidada'],
       rows: [
-        { label: 'Dívidas', a: sel.map(x => `${x.name} (${x.rate}%)`).join(', '), b: `1 contrato a ${n(v.rate).toLocaleString('pt-BR')}% a.m.` },
+        { label: 'Dívidas', a: sel.map(x => `${x.name} (${fmtAm(x.rate)})`).join(', '), b: `1 contrato a ${n(v.rate).toLocaleString('pt-BR')}% a.m.` },
         { label: 'Pagamento mensal', a: brl(mins), b: brl(p), better: p < mins ? 'b' : 'a' },
         { label: 'Prazo para quitar', a: cur.feasible ? mo(cur.months) : 'não quita só com o mínimo', b: mo(k), better: !cur.feasible || k < cur.months ? 'b' : 'a' },
         { label: 'Juros totais', a: cur.feasible ? brl(cur.interest) : 'crescem sem parar', b: brl(newInt), better: !cur.feasible || newInt < cur.interest ? 'b' : 'a' },

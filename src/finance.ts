@@ -2,10 +2,17 @@ import { Receivable, RecvMode, cleanReceivables, exampleReceivables, planLumps, 
 /** variable: renda variável; history: valores dos últimos meses (mais antigo → mais recente). Com 3+ meses, amount = base conservadora. */
 export type Income = { id: string; name: string; amount: number; variable?: boolean; history?: number[] };
 export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel'; dueDay?: number };
-export type DebtType = 'cartao_rotativo' | 'cheque_especial' | 'emprestimo_pessoal' | 'consignado' | 'financiamento' | 'outro';
-export type Debt = { id: string; name: string; type: DebtType; balance: number; rate: number; minPayment: number; dueDay?: number };
-export type AssetType = 'imovel' | 'veiculo' | 'investimentos' | 'conta' | 'outros';
-export type Asset = { id: string; name: string; type: AssetType; value: number; liquid: boolean };
+export type DebtType = 'cartao_rotativo' | 'cheque_especial' | 'emprestimo_pessoal' | 'consignado' | 'financiamento_imovel' | 'financiamento_veiculo' | 'financiamento' | 'outro';
+/** rate = juros AO MÊS em % (canônico). rateUnit só muda como o usuário digita/vê. rateMode 'calc' = app calcula a taxa pela parcela.
+ *  installments = parcelas restantes (opcional). minPayment = valor da parcela (ou pagamento mínimo no rotativo/cheque). */
+export type Debt = { id: string; name: string; type: DebtType; balance: number; rate: number; minPayment: number; dueDay?: number;
+  rateUnit?: RateUnit; rateMode?: 'sei' | 'calc'; installments?: number };
+export type RateUnit = 'am' | 'aa';
+export type AssetType = 'conta' | 'invest_rapido' | 'invest_longo' | 'previdencia' | 'seguro_vida' | 'imovel' | 'terreno' | 'veiculo' | 'outros';
+/** `liquid` é derivado do tipo (ASSET_TYPES) — o usuário não escolhe; mantido no dado por compatibilidade. */
+export type Asset = { id: string; name: string; type: AssetType; value: number; liquid: boolean;
+  /** previdência/seguro: aporte mensal (opcional); expenseId = gasto fixo ligado (o valor vive no gasto, sem contar duas vezes); forRetirement = soma no objetivo de aposentadoria */
+  monthly?: number; expenseId?: string; forRetirement?: boolean };
 export type GoalType = 'viagem' | 'compra' | 'aposentadoria' | 'reserva' | 'outro';
 export type Priority = 'alta' | 'media' | 'baixa';
 export type Retire = { monthlyIncome: number; age: number; retireAge: number; rate: number };
@@ -32,13 +39,13 @@ export type Data = {
   receivables: Receivable[];
 };
 /** Versão do formato dos dados (sobe quando o formato muda; dados antigos passam por migrate). */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 9;
 /** terms: aceite dos Termos de Uso/Política de Privacidade (versão + data/hora ISO). */
 export type Settings = { alertTime: string; firstSeenAt?: string; lastBackupAt?: string; terms?: { version: string; acceptedAt: string }; recvMode?: RecvMode };
 export const DEFAULT_SETTINGS: Settings = { alertTime: '09:00' };
-export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'outros';
+export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'protecao' | 'outros';
 
-export const CATEGORIES: Record<Category, { label: string; group: 'necessidade' | 'desejo' }> = {
+export const CATEGORIES: Record<Category, { label: string; short?: string; group: 'necessidade' | 'desejo' }> = {
   moradia: { label: 'Moradia', group: 'necessidade' },
   alimentacao: { label: 'Alimentação', group: 'necessidade' },
   transporte: { label: 'Transporte', group: 'necessidade' },
@@ -47,17 +54,77 @@ export const CATEGORIES: Record<Category, { label: string; group: 'necessidade' 
   lazer: { label: 'Lazer', group: 'desejo' },
   assinaturas: { label: 'Assinaturas', group: 'desejo' },
   compras: { label: 'Compras', group: 'desejo' },
+  protecao: { label: 'Previdência e seguros', short: 'Prev./seguro', group: 'necessidade' },
   outros: { label: 'Outros', group: 'desejo' },
 };
 export const DEBT_TYPES: Record<DebtType, string> = {
   cartao_rotativo: 'Cartão (rotativo)', cheque_especial: 'Cheque especial', emprestimo_pessoal: 'Empréstimo pessoal',
-  consignado: 'Consignado', financiamento: 'Financiamento', outro: 'Outro',
+  consignado: 'Consignado', financiamento_imovel: 'Financiamento de imóvel', financiamento_veiculo: 'Financiamento de veículo',
+  financiamento: 'Outro financiamento', outro: 'Outra dívida / parcelamento',
 };
+/** Como cada tipo costuma informar os juros e se tem parcelas fixas. */
+export const DEBT_INFO: Record<DebtType, { unit: RateUnit; parcelado: boolean; hint: string }> = {
+  cartao_rotativo: { unit: 'am', parcelado: false, hint: 'Veja “juros do rotativo” na fatura. Costuma passar de 12% ao mês.' },
+  cheque_especial: { unit: 'am', parcelado: false, hint: 'Aparece no app/extrato do banco. Costuma ficar perto de 8% ao mês.' },
+  emprestimo_pessoal: { unit: 'am', parcelado: true, hint: 'Está no contrato (procure “CET” ou “taxa mensal”).' },
+  consignado: { unit: 'am', parcelado: true, hint: 'Costuma ficar entre 1,5% e 2% ao mês.' },
+  financiamento_imovel: { unit: 'aa', parcelado: true, hint: 'No contrato a taxa costuma vir ao ano (ex.: 10% a.a. ≈ 0,80% a.m.).' },
+  financiamento_veiculo: { unit: 'aa', parcelado: true, hint: 'No contrato a taxa costuma vir ao ano (ex.: 24% a.a. ≈ 1,81% a.m.).' },
+  financiamento: { unit: 'am', parcelado: true, hint: 'Está no contrato ou no app da financeira.' },
+  outro: { unit: 'am', parcelado: true, hint: 'Se não souber, use “Não sei a taxa” e informe as parcelas.' },
+};
+// ---- taxas: canônico ao mês; conversão por juros compostos ----
+export const amToAa = (am: number) => (Math.pow(1 + am / 100, 12) - 1) * 100;
+export const aaToAm = (aa: number) => (Math.pow(1 + aa / 100, 1 / 12) - 1) * 100;
+const f2 = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: n !== 0 && Math.abs(n) < 0.1 ? 4 : 2 });
+export const fmtAm = (am: number) => `${f2(am)}% a.m.`;
+/** "1,00% a.m. ≈ 12,68% a.a." (ou a.a. primeiro quando a unidade é ao ano). */
+export const fmtRateBoth = (am: number, unit: RateUnit = 'am') => unit === 'aa' ? `${f2(amToAa(am))}% a.a. ≈ ${f2(am)}% a.m.` : `${f2(am)}% a.m. ≈ ${f2(amToAa(am))}% a.a.`;
+/** Lê "0,79", "0.79", "12,5", ",5". Vazio → undefined. */
+export function parseRate(t: string): number | undefined {
+  const s = t.trim().replace(/\s|%/g, ''); if (!s) return undefined;
+  const norm = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+  const n = Number(norm.endsWith('.') ? norm.slice(0, -1) : norm); return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+export type RateSolve = { ok: true; rate: number; zero: boolean } | { ok: false; msg: string };
+/** Taxa mensal implícita (Price): saldo = parcela × (1 − (1+i)^−n) / i. Bisseção; 0% quando parcela × n = saldo. */
+export function solveRate(balance: number, payment: number, n: number): RateSolve {
+  const B = Number(balance) || 0, P = Number(payment) || 0, N = Math.round(Number(n) || 0);
+  if (B <= 0 || P <= 0 || N < 1) return { ok: false, msg: 'Preencha o saldo devedor, o valor da parcela e quantas parcelas faltam — o app calcula a taxa.' };
+  const total = P * N, tol = Math.max(0.5, B * 0.0005);
+  if (total < B - tol) return { ok: false, msg: `As ${N} parcelas de ${brl(P)} somam ${brl(total)}, menos que o saldo devedor (${brl(B)}). Confira os valores: talvez faltem parcelas ou o saldo já tenha desconto.` };
+  if (Math.abs(total - B) <= tol) return { ok: true, rate: 0, zero: true };
+  const pv = (i: number) => P * (1 - Math.pow(1 + i, -N)) / i;
+  let lo = 1e-9, hi = 1;
+  if (pv(hi) > B) return { ok: false, msg: 'Com esses valores a taxa passaria de 100% ao mês. Confira a parcela, o saldo e quantas faltam.' };
+  for (let k = 0; k < 200; k++) { const mid = (lo + hi) / 2; if (pv(mid) > B) lo = mid; else hi = mid; }
+  return { ok: true, rate: Math.round(((lo + hi) / 2) * 100 * 10000) / 10000, zero: false };
+}
+/** Mês (YYYY-MM) da última parcela, contando a deste mês como 1ª. */
+export const lastInstallmentYm = (n: number, from = thisMonth()) => { const [y, m] = from.split('-').map(Number); const d = new Date(y, m - 1 + Math.max(1, Math.round(n)) - 1, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 
-export const ASSET_TYPES: Record<AssetType, { label: string; liquid: boolean }> = {
-  imovel: { label: 'Imóvel', liquid: false }, veiculo: { label: 'Veículo', liquid: false },
-  investimentos: { label: 'Investimentos', liquid: true }, conta: { label: 'Saldo em conta/poupança', liquid: true }, outros: { label: 'Outros', liquid: false },
+/** O app decide sozinho o que é "disponível rápido" pelo tipo do bem. */
+export const ASSET_TYPES: Record<AssetType, { label: string; liquid: boolean; hint: string }> = {
+  conta: { label: 'Dinheiro em conta ou poupança', liquid: true, hint: 'Dá para usar na hora.' },
+  invest_rapido: { label: 'Investimento de resgate rápido', liquid: true, hint: 'Ex.: CDB com liquidez diária, Tesouro Selic, fundo DI — o dinheiro cai em poucos dias.' },
+  previdencia: { label: 'Previdência privada (PGBL/VGBL)', liquid: false, hint: 'Não é dinheiro de emergência: tem carência, IR e às vezes taxa de saída se resgatar antes. É para a aposentadoria.' },
+  seguro_vida: { label: 'Seguro de vida com resgate', liquid: false, hint: 'Não é dinheiro de emergência: o resgate tem carência e descontos, e resgatar pode cancelar a proteção.' },
+  invest_longo: { label: 'Investimento de longo prazo', liquid: false, hint: 'Ex.: ações, fundos imobiliários, Tesouro IPCA, CDB/LCI/LCA com carência — resgatar antes pode demorar ou fazer perder valor.' },
+  imovel: { label: 'Imóvel', liquid: false, hint: 'Casa, apartamento, sala. Leva tempo para vender.' },
+  terreno: { label: 'Terreno', liquid: false, hint: 'Leva tempo para vender.' },
+  veiculo: { label: 'Veículo', liquid: false, hint: 'Carro, moto. Leva tempo para vender sem perder valor.' },
+  outros: { label: 'Outros bens', liquid: false, hint: 'Leva tempo para virar dinheiro.' },
 };
+const LONG_RX = /previd|pgbl|vgbl|a[cç][oõ]es|bolsa|\bfii?s?\b|imobili[aá]rio|lci|lca|car[eê]ncia|cdb.*(venc|20\d\d)|tesouro\s*(ipca|prefixado|renda\+?)|deb[eê]nture|cripto|bitcoin/i;
+/** Tipo do bem a partir de dados antigos (o antigo "líquido/ilíquido" é ignorado). */
+export function assetTypeOf(type: unknown, name: string): AssetType {
+  if (type === 'outros' && /terreno|lote\b/i.test(name)) return 'terreno';
+  if (typeof type === 'string' && type in ASSET_TYPES) return type as AssetType;
+  if (type === 'investimentos') return /previd|pgbl|vgbl/i.test(name) ? 'previdencia' : LONG_RX.test(name) ? 'invest_longo' : 'invest_rapido';
+  if (/terreno|lote\b/i.test(name)) return 'terreno';
+  return 'outros';
+}
+export const isLiquid = (a: Pick<Asset, 'type'>) => !!ASSET_TYPES[a.type]?.liquid;
 export const GOAL_TYPES: Record<GoalType, string> = { viagem: 'Viagem', compra: 'Compra', aposentadoria: 'Aposentadoria', reserva: 'Reserva', outro: 'Outro' };
 export const PRIORITIES: Record<Priority, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 export const DISCLAIMER = 'A JM Finance não decide por você. Nós auxiliamos na sua gestão financeira!';
@@ -76,8 +143,8 @@ export function migrate(raw: unknown): Data {
   return {
     ...emptyData(), ...d,
     incomes: arr<Income>(d.incomes).map(i => ({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable })), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: e.kind === 'variavel' ? 'variavel' : 'fixa' })),
-    debts: arr<Debt>(d.debts).filter(o => o && typeof o === 'object').map(x => ({ ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in DEBT_TYPES ? x.type : 'outro', balance: Number(x.balance) || 0, rate: Number(x.rate) || 0, minPayment: Number(x.minPayment) || 0 })),
-    assets: arr<Asset>(d.assets).filter(o => o && typeof o === 'object').map(x => ({ ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in ASSET_TYPES ? x.type : 'outros', value: Number(x.value) || 0, liquid: !!x.liquid })),
+    debts: arr<Debt>(d.debts).filter(o => o && typeof o === 'object').map(x => { const inst = Math.round(Number(x.installments)); return { ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in DEBT_TYPES ? x.type : 'outro', balance: Number(x.balance) || 0, rate: Math.max(0, Number(x.rate) || 0), minPayment: Number(x.minPayment) || 0, rateUnit: x.rateUnit === 'aa' ? 'aa' : 'am', rateMode: x.rateMode === 'calc' ? 'calc' : 'sei', installments: inst >= 1 && inst <= 600 ? inst : undefined }; }),
+    assets: arr<Asset>(d.assets).filter(o => o && typeof o === 'object').map(x => { const name = String(x.name ?? ''); const type = assetTypeOf(x.type, name); const mo = Number(x.monthly); return { ...x, id: String(x.id || uid()), name, type, value: Number(x.value) || 0, liquid: ASSET_TYPES[type].liquid, monthly: mo > 0 ? mo : undefined, expenseId: typeof x.expenseId === 'string' ? x.expenseId : undefined, forRetirement: !!x.forRetirement }; }),
     goals: arr<Goal>(d.goals).filter(o => o && typeof o === 'object').map(g => ({ ...g, id: String(g.id || uid()), name: String(g.name ?? ''), type: g.type in GOAL_TYPES ? g.type : 'outro', target: Number(g.target) || 0, saved: Number(g.saved) || 0, date: typeof g.date === 'string' ? g.date : ym(12), priority: g.priority || 'media' as Goal['priority'] })), reserve: Number(d.reserve) || 0,
     month: typeof d.month === 'string' && /^\d{4}-\d{2}$/.test(d.month) ? d.month : thisMonth(),
     actuals: d.actuals && typeof d.actuals === 'object' ? d.actuals : {},
@@ -90,7 +157,7 @@ export function migrate(raw: unknown): Data {
   };
 }
 const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMonth() + monthsAhead); return t.toISOString().slice(0, 7); };
-export const exampleData = (): Data => ({
+export const exampleData = (): Data => { const prevE = uid(), segE = uid(); return {
   isExample: true, month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS },
   reserve: 800,
   incomes: [{ id: uid(), name: 'Salário', amount: 4200 }, { id: uid(), name: 'Freelas (variável)', amount: varStats([1500, 1300, 1800, 1200, 1600, 1250]).base, variable: true, history: [1500, 1300, 1800, 1200, 1600, 1250] }],
@@ -104,6 +171,8 @@ export const exampleData = (): Data => ({
     { id: uid(), name: 'Streaming e apps', amount: 120, category: 'assinaturas', kind: 'fixa' },
     { id: uid(), name: 'Saídas', amount: 600, category: 'lazer', kind: 'variavel' },
     { id: uid(), name: 'Roupas/compras online', amount: 500, category: 'compras', kind: 'variavel' },
+    { id: prevE, name: 'Previdência', amount: 150, category: 'protecao', kind: 'fixa', dueDay: 15 },
+    { id: segE, name: 'Seguro de vida', amount: 90, category: 'protecao', kind: 'fixa', dueDay: 5 },
   ],
   debts: [
     { id: uid(), name: 'Cartão Banco X', type: 'cartao_rotativo', balance: 3500, rate: 14, minPayment: 350 },
@@ -114,13 +183,15 @@ export const exampleData = (): Data => ({
     { id: uid(), name: 'Carro (Gol 2015)', type: 'veiculo', value: 32000, liquid: false },
     { id: uid(), name: 'Poupança', type: 'conta', value: 1500, liquid: true },
     { id: uid(), name: 'Moto parada na garagem', type: 'veiculo', value: 6000, liquid: false },
+    { id: uid(), name: 'Previdência VGBL (banco)', type: 'previdencia', value: 8500, liquid: false, monthly: 150, expenseId: prevE, forRetirement: true },
+    { id: uid(), name: 'Seguro de vida com resgate', type: 'seguro_vida', value: 2400, liquid: false, monthly: 90, expenseId: segE },
   ],
   goals: [
     { id: uid(), name: 'Viagem para o Nordeste', type: 'viagem', target: 6000, date: ym(12), saved: 300, priority: 'media' },
     { id: uid(), name: 'Notebook novo', type: 'compra', target: 4000, date: ym(6), saved: 0, priority: 'baixa' },
     { id: uid(), name: 'Aposentadoria', type: 'aposentadoria', target: 0, date: '', saved: 0, priority: 'alta', retire: { monthlyIncome: 4000, age: 32, retireAge: 65, rate: 0.5 } },
   ],
-});
+}; };
 
 const sum = (a: { amount: number }[]) => a.reduce((s, x) => s + (Number(x.amount) || 0), 0);
 
@@ -140,9 +211,9 @@ export function diagnose(d: Data) {
   const wants = expenses - essentials;
   const assets = d.assets || [];
   const totalAssets = assets.reduce((s, a) => s + (Number(a.value) || 0), 0);
-  const liquidAssets = assets.filter(a => a.liquid).reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const liquidAssets = assets.filter(isLiquid).reduce((s, a) => s + (Number(a.value) || 0), 0);
   const netWorth = totalAssets + d.reserve - d.debts.reduce((s, x) => s + x.balance, 0);
-  const effReserve = d.reserve + liquidAssets; // ativos líquidos contam como reserva
+  const effReserve = d.reserve + liquidAssets; // o que está disponível rápido conta como reserva
   const reserveMonths = essentials + minPayments > 0 ? effReserve / (essentials + minPayments) : 0;
   const expensive = d.debts.filter(x => x.type === 'cartao_rotativo' || x.type === 'cheque_especial' || x.rate >= 5);
   const monthlyInterest = d.debts.reduce((s, x) => s + x.balance * x.rate / 100, 0);
@@ -176,13 +247,13 @@ export function diagnose(d: Data) {
       : { tone: 'good', title: `Parcelas de dívida: ${pct(dti)} da renda`, text: 'Nível de endividamento sob controle.' });
   }
   if (monthlyInterest > 0) f.push({ tone: monthlyInterest > income * 0.05 ? 'bad' : 'warn', title: `Você paga cerca de ${brl(monthlyInterest)} de juros por mês`, text: 'Esse dinheiro não abate nada da dívida — é o "custo" de dever. Quanto antes quitar as dívidas caras, mais sobra.' });
-  expensive.forEach(x => f.push({ tone: 'bad', title: `Dívida cara: ${x.name} (${x.rate}% a.m.)`, text: `${x.rate}% ao mês equivale a ~${pct(Math.pow(1 + x.rate / 100, 12) - 1)} ao ano. ${x.type === 'cartao_rotativo' ? 'O rotativo do cartão é a dívida mais cara do Brasil.' : x.type === 'cheque_especial' ? 'Cheque especial nunca deve ser usado como renda extra.' : ''} Troque por uma dívida mais barata ou quite primeiro.` }));
+  expensive.forEach(x => f.push({ tone: 'bad', title: `Dívida cara: ${x.name} (${fmtAm(x.rate)})`, text: `${fmtRateBoth(x.rate)}. ${x.type === 'cartao_rotativo' ? 'O rotativo do cartão é a dívida mais cara do Brasil.' : x.type === 'cheque_especial' ? 'Cheque especial nunca deve ser usado como renda extra.' : ''} Troque por uma dívida mais barata ou quite primeiro.` }));
   if (totalAssets > 0) f.push(netWorth < 0
     ? { tone: 'bad', title: `Patrimônio líquido negativo: ${brl(netWorth)}`, text: 'Você deve mais do que tem. Prioridade é reduzir dívidas antes de comprar novos bens.' }
     : { tone: 'good', title: `Patrimônio líquido: ${brl(netWorth)}`, text: `É o que sobraria se você vendesse tudo e quitasse as dívidas. Desse total, ${brl(liquidAssets + d.reserve)} está disponível rápido (líquido).` });
   f.push(reserveMonths < 1
-    ? { tone: 'bad', title: `Reserva cobre ${reserveMonths.toFixed(1)} mês`, text: (liquidAssets ? `Considerando reserva + ativos líquidos (${brl(effReserve)}). ` : '') + 'Sem reserva, qualquer imprevisto vira dívida cara. Meta inicial: 1 mês de custos essenciais.' }
-    : reserveMonths < 6 ? { tone: 'warn', title: `Reserva cobre ${reserveMonths.toFixed(1)} meses`, text: (liquidAssets ? `Considerando reserva + ativos líquidos (${brl(effReserve)}). ` : '') + 'Bom começo. A meta é de 3 a 6 meses de custos essenciais.' }
+    ? { tone: 'bad', title: `Reserva cobre ${reserveMonths.toFixed(1)} mês`, text: (liquidAssets ? `Considerando reserva + o que está disponível rápido (${brl(effReserve)}). ` : '') + 'Sem reserva, qualquer imprevisto vira dívida cara. Meta inicial: 1 mês de custos essenciais.' }
+    : reserveMonths < 6 ? { tone: 'warn', title: `Reserva cobre ${reserveMonths.toFixed(1)} meses`, text: (liquidAssets ? `Considerando reserva + o que está disponível rápido (${brl(effReserve)}). ` : '') + 'Bom começo. A meta é de 3 a 6 meses de custos essenciais.' }
     : { tone: 'good', title: `Reserva cobre ${reserveMonths.toFixed(1)} meses`, text: 'Reserva de emergência completa.' });
 
   return { reserve: d.reserve, effReserve, totalAssets, liquidAssets, netWorth, income, expenses, minPayments, totalDebt, outflow, balance, commitment, dti, essentials, wants, reserveMonths, expensive, monthlyInterest, score, level, levelText: levelText[level], findings: f };
@@ -251,7 +322,7 @@ export function actionPlan(d: Data) {
   if (r.expensive.length) steps.push({
     title: 'Renegocie as dívidas mais caras', text: 'Troque dívida cara por dívida barata. Ligue para o banco ou use o Desenrola/Serasa Limpa Nome/Registrato.',
     items: [
-      ...order(r.expensive, 'avalanche').map(x => `${x.name}: ${x.rate}% a.m. — peça parcelamento com juros menores ou desconto à vista.`),
+      ...order(r.expensive, 'avalanche').map(x => `${x.name}: ${fmtAm(x.rate)} — peça parcelamento com juros menores ou desconto à vista.`),
       'Considere um empréstimo consignado ou com garantia (juros de 1,5–3% a.m.) para quitar rotativo/cheque especial — só se parar de usá-los.',
       'Nunca aceite uma parcela que não caiba no orçamento ajustado.',
     ]});
@@ -260,9 +331,9 @@ export function actionPlan(d: Data) {
   if (r.expensive.length && r.totalAssets > 0) {
     const expDebt = r.expensive.reduce((s, x) => s + x.balance, 0);
     const spareLiquid = Math.max(0, r.liquidAssets + r.reserve - Math.min(1000, reserveTarget1 * 0.5));
-    const idle = (d.assets || []).filter(a => !a.liquid && a.type !== 'imovel');
+    const idle = (d.assets || []).filter(a => !isLiquid(a) && a.type !== 'imovel' && a.type !== 'invest_longo');
     const items: string[] = [];
-    if (spareLiquid > 0) items.push(`Você tem ${brl(spareLiquid)} em ativos líquidos além de uma mini-reserva. Usar parte disso para quitar ${order(r.expensive, 'avalanche')[0].name} (${order(r.expensive, 'avalanche')[0].rate}% a.m.) costuma render mais do que qualquer investimento.`);
+    if (spareLiquid > 0) items.push(`Você tem ${brl(spareLiquid)} disponível rápido (conta, poupança, resgate rápido) além de uma mini-reserva. Usar parte disso para quitar ${order(r.expensive, 'avalanche')[0].name} (${fmtAm(order(r.expensive, 'avalanche')[0].rate)}) costuma render mais do que qualquer investimento.`);
     if (idle.length) items.push(`Bens que talvez estejam parados: ${idle.map(a => `${a.name} (~${brl(a.value)})`).join(', ')}. Vender algum deles ou trocar por um mais barato quitaria parte das dívidas caras (${brl(expDebt)}).`);
     items.push('Isso é uma opção, não uma obrigação: avalie se o bem é essencial (ex.: carro para trabalhar) antes de decidir.');
     if (spareLiquid > 0 || idle.length) steps.push({ title: 'Opção: use patrimônio para matar dívidas caras', text: 'Juros de dívida cara são maiores que o rendimento de quase qualquer bem ou aplicação.', items });
@@ -293,7 +364,7 @@ export function actionPlan(d: Data) {
       ]});
   }
   if (r.reserveMonths < 6) steps.push({
-    title: 'Construa a reserva de emergência', text: `Meta: 6 meses de custos essenciais = ${brl(reserveTarget1 * 6)}. Hoje: ${brl(r.effReserve)}${r.liquidAssets ? ' (reserva + ativos líquidos)' : ''}. ${surplus > 0 ? `Após quitar as dívidas, guardando ${brl(surplus + r.minPayments)}/mês você chega lá em ~${Math.ceil(Math.max(0, reserveTarget1 * 6 - r.effReserve) / (surplus + r.minPayments))} meses.` : 'Primeiro crie folga no orçamento.'}` });
+    title: 'Construa a reserva de emergência', text: `Meta: 6 meses de custos essenciais = ${brl(reserveTarget1 * 6)}. Hoje: ${brl(r.effReserve)}${r.liquidAssets ? ' (reserva + disponível rápido)' : ''}. ${surplus > 0 ? `Após quitar as dívidas, guardando ${brl(surplus + r.minPayments)}/mês você chega lá em ~${Math.ceil(Math.max(0, reserveTarget1 * 6 - r.effReserve) / (surplus + r.minPayments))} meses.` : 'Primeiro crie folga no orçamento.'}` });
   steps.push({ title: 'Próximo nível', text: 'Com dívidas quitadas e reserva pronta: invista para objetivos (Tesouro Direto, CDBs), revise o orçamento a cada 3 meses e busque aumentar a renda.' });
   // Orçamento livre para objetivos: com dívidas, 80% da sobra vai para elas
   const freeForGoals = d.debts.length ? surplus * 0.2 : surplus;
@@ -342,8 +413,17 @@ export function retirementCalc(r: Retire, saved: number) {
   return { capital, monthly, months: n };
 }
 export type GoalResult = { goal: Goal; target: number; months: number; need: number; allocated: number; allocatedAfter: number; fits: boolean; progress: number; lump: number;
+  prev?: { saved: number; monthly: number; outOfBudget: number };
   alt?: { extendTo: string; extendMonths: number; reduceTo: number; cut: number } };
 const PR: Record<Priority, number> = { alta: 0, media: 1, baixa: 2 };
+/** Previdências marcadas para a aposentadoria: saldo + aportes que estão no orçamento (gasto ligado). */
+export function previdenciaForGoal(d: Data) {
+  const ps = (d.assets || []).filter(a => a.type === 'previdencia' && a.forRetirement);
+  const inBudget = (a: Asset) => !!a.expenseId && d.expenses.some(e => e.id === a.expenseId);
+  return { saved: ps.reduce((t, a) => t + (a.value || 0), 0),
+    monthly: ps.filter(inBudget).reduce((t, a) => t + (d.expenses.find(e => e.id === a.expenseId)?.amount || 0), 0),
+    outOfBudget: ps.filter(a => !inBudget(a)).reduce((t, a) => t + (a.monthly || 0), 0) };
+}
 export function evaluateGoals(d: Data) {
   const plan = actionPlan(d); const r = diagnose(d); const goalLump = plan.recv.goalLump;
   const payoffMonths = plan.payoff ? (plan.payoff.av.feasible ? plan.payoff.av.months : null) : 0;
@@ -352,18 +432,21 @@ export function evaluateGoals(d: Data) {
   let avail = plan.freeForGoals, availAfter = freeAfter;
   const results: GoalResult[] = [];
   const sorted = [...(d.goals || [])].sort((a, b) => PR[a.priority] - PR[b.priority]);
+  const pv = previdenciaForGoal(d); const retireGoalId = sorted.find(g => g.type === 'aposentadoria' && g.retire)?.id;
   for (const g of sorted) {
+    const usePrev = g.id === retireGoalId && (pv.saved > 0 || pv.monthly > 0 || pv.outOfBudget > 0);
     let target = g.target, months = monthsUntil(g.date), need: number;
     if (g.type === 'aposentadoria' && g.retire) {
-      const rc = retirementCalc(g.retire, g.saved); target = rc.capital; months = rc.months; need = rc.monthly;
+      // previdência ligada: o saldo entra como já guardado e os aportes (que já estão nos gastos) reduzem o que falta por mês
+      const rc = retirementCalc(g.retire, g.saved + (usePrev ? pv.saved : 0)); target = rc.capital; months = rc.months; need = Math.max(0, rc.monthly - (usePrev ? pv.monthly : 0));
     } else need = Math.max(0, target - g.saved - (goalLump[g.id] || 0)) / Math.max(1, months);
     const allocated = Math.min(need, Math.max(0, avail)); avail -= allocated;
     const allocatedAfter = Math.min(Math.max(need, allocated), Math.max(0, availAfter)); availAfter -= allocatedAfter;
     const fits = need <= allocated + 0.5;
-    const progress = target ? Math.min(1, g.saved / target) : 0;
+    const progress = target ? Math.min(1, (g.saved + (usePrev ? pv.saved : 0)) / target) : 0;
     let alt: GoalResult['alt'];
     if (!fits) {
-      const remaining = Math.max(0, target - g.saved - (goalLump[g.id] || 0));
+      const remaining = Math.max(0, target - g.saved - (usePrev ? pv.saved : 0) - (goalLump[g.id] || 0));
       // meses até completar: "allocated" durante as dívidas, "allocatedAfter" depois
       let extendMonths = 0;
       if (payoffMonths !== null) {
@@ -374,7 +457,7 @@ export function evaluateGoals(d: Data) {
       if (extendMonths > 600) extendMonths = 0;
       alt = { extendMonths, extendTo: extendMonths ? ym(extendMonths) : '', reduceTo: g.type === 'aposentadoria' && g.retire ? Math.max(0, allocated / need * g.retire.monthlyIncome) : g.saved + allocated * months, cut: need - allocated };
     }
-    results.push({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt, lump: goalLump[g.id] || 0 });
+    results.push({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt, lump: goalLump[g.id] || 0, ...(usePrev ? { prev: pv } : {}) });
   }
   return { results, free: plan.freeForGoals, freeAfter, payoffMonths, hasExpensive: r.expensive.length > 0, hasDebts: d.debts.length > 0, surplus: plan.surplus };
 }

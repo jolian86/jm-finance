@@ -1,7 +1,7 @@
 // Relatório em PDF gerado 100% no aparelho (jsPDF). Fundo claro para impressão, faixa preta + dourado da marca.
 import { jsPDF } from 'jspdf';
 import logoUrl from './assets/jm-mark-pdf.jpg';
-import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, DISCLAIMER, Category, brl, diagnose, actionPlan, evaluateGoals, monthsUntil } from './finance';
+import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, DISCLAIMER, Category, brl, diagnose, actionPlan, evaluateGoals, monthsUntil , fmtAm } from './finance';
 import { ymTitle, ymShort, plannedByCategory, series, deltas } from './history';
 import { allOccurrences, isOpen, CERT, RECV_TYPES, fmtOccDate, lumpSentence } from './recv';
 
@@ -137,10 +137,10 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
 
   // ---------- Patrimônio ----------
   section('Patrimônio', 40);
-  para(`Bens: ${brl0(r.totalAssets)} (líquidos: ${brl0(r.liquidAssets)}) · Reserva: ${brl0(d.reserve)} · Dívidas: ${brl0(r.totalDebt)} · Patrimônio líquido: ${brl0(r.netWorth)}`, 9.6);
+  para(`Bens: ${brl0(r.totalAssets)} (disponível rápido: ${brl0(r.liquidAssets)}) · Reserva: ${brl0(d.reserve)} · Dívidas: ${brl0(r.totalDebt)} · Patrimônio líquido: ${brl0(r.netWorth)}`, 9.6);
   y += 2;
-  if (d.assets.length) table([{ h: 'Bem', w: 70 }, { h: 'Tipo', w: 50 }, { h: 'Liquidez', w: 28, a: 'c' }, { h: 'Valor', w: CW - 148, a: 'r' }],
-    d.assets.map(a => [a.name, ASSET_TYPES[a.type].label, a.liquid ? 'Líquido' : 'Não líquido', brl0(a.value)]),
+  if (d.assets.length) table([{ h: 'Bem', w: 70 }, { h: 'Tipo', w: 50 }, { h: 'Acesso', w: 28, a: 'c' }, { h: 'Valor', w: CW - 148, a: 'r' }],
+    d.assets.map(a => [a.name, ASSET_TYPES[a.type].label, ASSET_TYPES[a.type].liquid ? 'Rápido' : 'Longo prazo', brl0(a.value)]),
     { total: ['Patrimônio líquido (bens + reserva - dívidas)', '', '', brl0(r.netWorth)], tone: [...d.assets.map(() => []), [undefined, undefined, undefined, r.netWorth < 0 ? LV['crítico'] : INK]] });
   else para('Nenhum bem cadastrado.', 9, MUTED);
   disc();
@@ -150,7 +150,7 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
   if (d.debts.length) {
     const ds = [...d.debts].sort((a, b) => b.rate - a.rate);
     table([{ h: 'Dívida', w: 46 }, { h: 'Tipo', w: 34 }, { h: 'Saldo', w: 28, a: 'r' }, { h: 'Juros a.m.', w: 22, a: 'r' }, { h: 'Parcela', w: 24, a: 'r' }, { h: 'Vence', w: CW - 154, a: 'c' }],
-      ds.map(x => [x.name, DEBT_TYPES[x.type], brl0(x.balance), `${f1(x.rate)}%`, brl0(x.minPayment), x.dueDay ? `dia ${x.dueDay}` : '-']),
+      ds.map(x => [x.name, DEBT_TYPES[x.type], brl0(x.balance), fmtAm(x.rate).replace(' a.m.', ''), brl0(x.minPayment), x.dueDay ? `dia ${x.dueDay}` : '-']),
       { total: ['Total', '', brl0(r.totalDebt), '', brl0(r.minPayments), ''], tone: ds.map(x => [undefined, undefined, undefined, x.rate >= 5 ? LV['crítico'] : x.rate >= 2.5 ? LV['atenção'] : undefined]) });
     para('Ordenadas da maior para a menor taxa de juros (as em vermelho são as mais caras).', 8.2, MUTED);
   } else para('Nenhuma dívida cadastrada. Ótimo!', 9.5, LV['saudável']);
@@ -160,7 +160,7 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
   section('Orçamento planejado x gasto real', 40);
   const planned = plannedByCategory(d); const cats = Object.keys(planned) as Category[];
   const hasAct = Object.values(d.actuals).some(v => (v ?? 0) > 0);
-  if (!hasAct) para('Nenhum gasto real lançado neste mês - a coluna "Real" fica em branco. Lance em Meus dados > Gasto real deste mês.', 8.8, MUTED);
+  if (!hasAct) para('Nenhum gasto real lançado neste mês - a coluna "Real" fica em branco. Anote em Meus dados > Gastos mensais ("Gasto até agora").', 8.8, MUTED);
   const rows: string[][] = [], tone: (RGB | undefined)[][] = [];
   let tp = 0, ta = 0;
   cats.sort((a, b) => (planned[b] ?? 0) - (planned[a] ?? 0)).forEach(c => {

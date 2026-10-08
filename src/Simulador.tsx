@@ -44,7 +44,7 @@ function Scenario({ id, data, upd, goGoals }: { id: SimId; data: Data; upd: (p: 
             return <label key={o.value} className={`chk ${on ? 'on' : ''}`}><input type="checkbox" checked={on} onChange={() => { const s = new Set((v[f.key] || '').split(',').filter(Boolean)); if (on) s.delete(o.value); else s.add(o.value); set(f.key, [...s].join(',')); }} />{o.label}</label>; })}</div>
         : <label key={f.key}>{f.label}{f.suffix && <span className="suf"> ({f.suffix})</span>}
           {f.type === 'select' ? <select value={v[f.key]} onChange={e => set(f.key, e.target.value)}>{f.options!.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
-            : <input type="number" inputMode="decimal" step={f.step ?? 1} value={v[f.key] ?? ''} onChange={e => set(f.key, e.target.value)} />}
+            : <input type="text" inputMode="decimal" autoComplete="off" value={v[f.key] ?? ''} onChange={e => { const t = e.target.value.replace(/[^\d.,]/g, ''); set(f.key, t); }} />}
           {f.hint && <small className="fhint">{f.hint}</small>}</label>)}</div>
     </div>
     {'error' in res ? <div className="card"><div className="finding warn"><b>{res.error}</b></div></div> : <Result r={res} onSave={res.goal && !saved ? () => {

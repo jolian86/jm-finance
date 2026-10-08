@@ -3,18 +3,20 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
 import Evolucao from './Evolucao';
 import Simulador from './Simulador';
+import { DebtCard } from './DebtCard';
+import { AssetCard } from './AssetCard';
 import Backup from './Backup';
 import { ReceivablesCard, ForecastCard, VarIncome, ModeToggle } from './Receivables';
-import { varStats } from './finance';
+import { varStats , fmtAm } from './finance';
 import { Welcome, TermsSheet, deleteAllData } from './Terms';
 import { TERMS_VERSION, hasAccepted } from './terms';
 import type { SimId } from './sim';
 import { Bell, AlertsPanel, Modal } from './AlertsCenter';
 import { computeAlerts, notifyNew, saveReminders, AlertTab } from './alerts';
 import { closeMonth, needsClosing, fullExample, ymLong, ymTitle, ymShort, deltas, plannedByCategory } from './history';
-import { AnimatedNumber, ScoreGauge, ProgressRing, BrandLockup, Splash, Icon } from './ui';
+import { AnimatedNumber, ScoreGauge, ProgressRing, BrandLockup, Splash, Icon, MoneyInput, DayInput } from './ui';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, LineChart, Line, Legend, CartesianGrid } from 'recharts';
-import { Data, Category, DebtType, AssetType, GoalType, Priority, Goal, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, PRIORITIES, DISCLAIMER, brl, pct, uid, emptyData, thisMonth, diagnose, actionPlan, order, migrate, evaluateGoals } from './finance';
+import { Data, Category, GoalType, Priority, Goal, CATEGORIES, GOAL_TYPES, PRIORITIES, DISCLAIMER, brl, pct, uid, emptyData, thisMonth, diagnose, actionPlan, order, migrate, evaluateGoals } from './finance';
 
 type Tab = 'inicio' | 'dados' | 'diagnostico' | 'plano' | 'objetivos' | 'simulador';
 const KEY = 'jmfinance:data';
@@ -77,7 +79,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
             {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={replaceData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
-            {tab === 'dados' && <><Inputs data={data} upd={upd} setData={replaceData} onCloseMonth={() => setAskClose(true)} /><Backup data={data} setData={setData} />
+            {tab === 'dados' && <><Inputs data={data} upd={upd} setData={replaceData} onCloseMonth={() => setAskClose(true)} goGoals={() => go('objetivos')} /><Backup data={data} setData={setData} />
               <p className="terms-foot"><button className="link" onClick={() => setTermsOpen(true)}>Termos e privacidade</button>{acceptedOn && <> · aceitos em {acceptedOn} (versão {data.settings.terms!.version})</>}</p></>}
             {tab === 'diagnostico' && (hasData ? <>
               <ExportBtn data={data} />
@@ -160,8 +162,8 @@ function Home({ data, hasData, go, setData, onCloseMonth, onTerms }: { data: Dat
 
 const months = (n: number) => `${n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`;
 const pct1 = (n: number) => pct(n);
-const Stat = ({ label, v, n, f, bad }: { label: string; v?: string; n?: number; f?: (n: number) => string; bad?: boolean }) =>
-  <motion.div className="stat" whileHover={{ y: -2 }}><small>{label}</small><b className={bad ? 'neg' : ''}>{n !== undefined && f ? <AnimatedNumber value={n} format={f} /> : v}</b></motion.div>;
+const Stat = ({ label, v, n, f, bad, sub }: { label: string; v?: string; n?: number; f?: (n: number) => string; bad?: boolean; sub?: string }) =>
+  <motion.div className="stat" whileHover={{ y: -2 }}><small>{label}</small><b className={bad ? 'neg' : ''}>{n !== undefined && f ? <AnimatedNumber value={n} format={f} /> : v}</b>{sub && <small className="stat-sub">{sub}</small>}</motion.div>;
 
 function ScoreCard({ r }: { r: ReturnType<typeof diagnose> }) {
   const c = LEVEL_COLOR[r.level];
@@ -175,7 +177,7 @@ function ScoreCard({ r }: { r: ReturnType<typeof diagnose> }) {
 
 function num(v: string) { return Number(v.replace(',', '.')) || 0; }
 
-function Inputs({ data, upd, setData, onCloseMonth }: { data: Data; upd: (p: Partial<Data>) => void; setData: (d: Data) => void; onCloseMonth: () => void }) {
+function Inputs({ data, upd, setData, onCloseMonth, goGoals }: { data: Data; upd: (p: Partial<Data>) => void; setData: (d: Data) => void; onCloseMonth: () => void; goGoals?: () => void }) {
   const mark = (p: Partial<Data>) => upd({ ...p, isExample: false });
   const planned = plannedByCategory(data);
   const day = (v: string) => { const n = Math.round(num(v)); return n >= 1 && n <= 31 ? n : undefined; };
@@ -185,71 +187,70 @@ function Inputs({ data, upd, setData, onCloseMonth }: { data: Data; upd: (p: Par
     {data.isExample && <div className="card ex">Você está vendo <b>dados de exemplo fictícios</b>. Edite ou <button className="link" onClick={() => setData(emptyData())}>limpe tudo</button> para usar os seus.</div>}
     <div className="card"><h3>Rendas mensais</h3>
       {data.incomes.map(i => { const setI = (ni: typeof i) => mark({ incomes: data.incomes.map(x => x.id === i.id ? ni : x) }); const vs = i.variable ? varStats(i.history ?? []) : null;
-        return <div className="income" key={i.id}><div className="row">
-        <input value={i.name} onChange={e => setI({ ...i, name: e.target.value })} />
-        <input type="number" inputMode="decimal" value={i.amount || ''} placeholder="R$" readOnly={!!vs?.ok} title={vs?.ok ? 'Base conservadora calculada pelos últimos meses' : undefined} className={vs?.ok ? 'derived' : ''} onChange={e => setI({ ...i, amount: num(e.target.value) })} />
-        <button className="x" onClick={() => mark({ incomes: data.incomes.filter(x => x.id !== i.id) })}>✕</button></div>
+        return <div className="income" key={i.id}><div className="row money-row">
+        <input className="row-name" aria-label="Nome da renda" placeholder="Nome da renda" value={i.name} onChange={e => setI({ ...i, name: e.target.value })} />
+        <MoneyInput label={vs?.ok ? 'Valor mensal (base conservadora calculada pelos últimos meses)' : 'Valor mensal da renda'} value={i.amount} readOnly={!!vs?.ok} className={vs?.ok ? 'derived' : ''} onChange={n => setI({ ...i, amount: n ?? 0 })} />
+        <button className="x" aria-label="Remover renda" onClick={() => mark({ incomes: data.incomes.filter(x => x.id !== i.id) })}>✕</button></div>
         <label className="chk-line var-toggle"><input type="checkbox" checked={!!i.variable} onChange={e => setI(e.target.checked ? { ...i, variable: true, history: i.history?.length ? i.history : [i.amount, i.amount, i.amount] } : { ...i, variable: false })} />Renda variável (comissão, plantões, freelas…)</label>
         {i.variable && <VarIncome income={i} month={data.month} onChange={setI} />}</div>; })}
       <button className="btn ghost" onClick={() => mark({ incomes: [...data.incomes, { id: uid(), name: 'Salário', amount: 0 }] })}>+ Adicionar renda</button>
     </div>
     <ReceivablesCard data={data} upd={upd} />
     <ForecastCard data={data} upd={upd} />
-    <div className="card"><h3>Gastos mensais</h3>
-      {data.expenses.map(i => <div className="row wrap" key={i.id}>
-        <input value={i.name} onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, name: e.target.value } : x) })} />
-        <input type="number" inputMode="decimal" value={i.amount || ''} placeholder="R$" onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, amount: num(e.target.value) } : x) })} />
-        <select value={i.category} onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, category: e.target.value as Category } : x) })}>
-          {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
-        <select value={i.kind} onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, kind: e.target.value as 'fixa' } : x) })}>
-          <option value="fixa">Fixo</option><option value="variavel">Variável</option></select>
-        <input className="due" type="number" inputMode="numeric" min={1} max={31} placeholder="Vence dia" aria-label="Dia de vencimento (opcional)" value={i.dueDay ?? ''} onChange={e => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, dueDay: day(e.target.value) } : x) })} />
-        <button className="x" onClick={() => mark({ expenses: data.expenses.filter(x => x.id !== i.id) })}>✕</button></div>)}
+    <div className="card" id="gastos"><h3>Gastos mensais</h3>
+      <p className="hint">Planeje quanto quer gastar e anote quanto já gastou para ver se está dentro do plano.</p>
+      {(Object.keys(CATEGORIES) as Category[]).filter(c => data.expenses.some(e => e.category === c)).map(c => {
+        const label = CATEGORIES[c].label; const items = data.expenses.filter(e => e.category === c);
+        const p = planned[c] || 0; const a = data.actuals[c]; const has = a !== undefined;
+        const allFixed = items.every(e => e.kind === 'fixa'); const ratio = has && p > 0 ? a / p : has && a > 0 ? 2 : 0; const pc = Math.round(ratio * 100);
+        const paid = allFixed && has && p > 0 && Math.abs(a - p) < 0.005;
+        const cls = !has ? 'none' : ratio > 1.005 ? 'over' : paid ? 'paid' : ratio >= 0.8 ? 'near' : 'ok';
+        const setA = (v?: number) => { const nx = { ...data.actuals }; if (v === undefined) delete nx[c]; else nx[c] = v; mark({ actuals: nx }); };
+        const r0 = (n: number) => brl(Math.round(n));
+        const sentence = !has ? <>{label}: {r0(p)} planejados. Anote quanto já gastou (opcional) para acompanhar.</>
+          : paid ? <>{label}: {items.length > 1 ? 'contas pagas' : 'conta paga'} — {r0(a)} de {r0(p)} planejados (100%).</>
+          : <>{label}: você já usou <b>{r0(a)}</b> dos {r0(p)} planejados (<b>{pc}%</b>){cls === 'over' ? <> — <b>{r0(a - p)} acima</b> do plano.</> : cls === 'near' ? <> — restam {r0(p - a)}.</> : '.'}</>;
+        return <section className={`cat-card ${cls}`} key={c} aria-label={`Categoria ${label}`}>
+          <div className="cat-head"><b>{label}</b><small>{items.length} {items.length === 1 ? 'gasto' : 'gastos'} · {allFixed ? 'fixo' : items.some(e => e.kind === 'fixa') ? 'fixo + variável' : 'variável'}</small></div>
+          {items.map(i => { const setE = (pp: Partial<typeof i>) => mark({ expenses: data.expenses.map(x => x.id === i.id ? { ...x, ...pp } : x) });
+            return <div className="exp" key={i.id}>
+            <div className="exp-l1">
+              <input className="row-name" aria-label="Nome do gasto" placeholder="Nome do gasto" value={i.name} onChange={e => setE({ name: e.target.value })} />
+              <MoneyInput label={`Valor planejado de ${i.name || 'gasto'}`} value={i.amount} onChange={n => setE({ amount: n ?? 0 })} />
+              <button className="x" aria-label={`Remover ${i.name || 'gasto'}`} onClick={() => mark({ expenses: data.expenses.filter(x => x.id !== i.id) })}>✕</button></div>
+            <div className="exp-l2">
+              <select className="exp-cat" aria-label="Categoria" title="Categoria" value={i.category} onChange={e => setE({ category: e.target.value as Category })}>
+                {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k} title={v.label}>{v.short || v.label}</option>)}</select>
+              <select className="exp-kind" aria-label="Fixo ou variável" title="Fixo ou variável" value={i.kind} onChange={e => setE({ kind: e.target.value as 'fixa' })}>
+                <option value="fixa">Fixo</option><option value="variavel">Variável</option></select>
+              <DayInput value={i.dueDay} onChange={v => setE({ dueDay: day(v) })} />
+            </div></div>; })}
+          <button className="link add-in-cat" onClick={() => mark({ expenses: [...data.expenses, { id: uid(), name: 'Novo gasto', amount: 0, category: c, kind: allFixed ? 'fixa' : 'variavel' }] })}>+ gasto em {label}</button>
+          <div className="cat-budget">
+            <div className="cat-cells">
+              <div className="cat-cell"><small>Planejado</small><b>{brl(p)}</b></div>
+              <label className="cat-cell">Gasto até agora<MoneyInput placeholder="opcional" label={`Gasto até agora em ${label}`} value={a} onChange={setA} /></label>
+            </div>
+            <div className="bbar" role="progressbar" aria-label={`${label}: gasto em relação ao planejado`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, pc)}>
+              <motion.div className={cls} initial={{ width: 0 }} animate={{ width: `${Math.min(100, ratio * 100)}%` }} transition={{ duration: 0.6 }} /></div>
+            <p className={`cat-sentence ${cls}`}>{sentence}</p>
+            {allFixed && p > 0 && <label className="chk-line paid-toggle"><input type="checkbox" checked={paid} onChange={e => setA(e.target.checked ? p : undefined)} />Já paguei {items.length > 1 ? 'as contas' : 'a conta'} deste mês</label>}
+          </div>
+        </section>; })}
       <button className="btn ghost" onClick={() => mark({ expenses: [...data.expenses, { id: uid(), name: 'Novo gasto', amount: 0, category: 'outros', kind: 'variavel' }] })}>+ Adicionar gasto</button>
     </div>
-    {Object.keys(planned).length > 0 && <div className="card"><h3>Gasto real deste mês <small className="opt">(opcional)</small></h3>
-      <p className="hint">Anote quanto já gastou em cada categoria para comparar com o planejado. Alertas: categorias variáveis ao chegar a 80%; qualquer categoria ao passar de 100%.</p>
-      {(Object.keys(planned) as Category[]).map(c => { const p = planned[c] || 0; const a = data.actuals[c]; const ratio = a ? a / (p || 1) : 0;
-        const variable = data.expenses.some(e => e.category === c && e.kind === 'variavel'); const cls = ratio > 1.005 ? 'over' : variable && ratio >= 0.8 && ratio < 1 ? 'near' : '';
-        return <div className="budget-row" key={c}>
-          <div className="budget-top"><span>{CATEGORIES[c].label}</span><small>planejado {brl(p)}</small>
-            <input type="number" inputMode="decimal" placeholder="Gasto real" aria-label={`Gasto real em ${CATEGORIES[c].label}`} value={a ?? ''}
-              onChange={e => { const v = e.target.value === '' ? undefined : num(e.target.value); const nx = { ...data.actuals }; if (v === undefined) delete nx[c]; else nx[c] = v; mark({ actuals: nx }); }} /></div>
-          <div className="bbar"><motion.div className={cls} initial={{ width: 0 }} animate={{ width: `${Math.min(100, ratio * 100)}%` }} transition={{ duration: 0.6 }} /></div>
-          {a !== undefined && <small className={`bpct ${cls}`}>{Math.round(ratio * 100)}% do planejado{!variable && Math.abs(ratio - 1) <= 0.005 ? ' · conta fixa paga' : ''}</small>}
-        </div>; })}
-    </div>}
     <div className="card"><h3>Dívidas</h3>
-      <p className="hint">Juros ao mês (a.m.) aparecem na fatura/contrato. Rotativo do cartão costuma passar de 12% a.m.</p>
-      {data.debts.map(i => <div className="debt" key={i.id}>
-        <div className="row"><input value={i.name} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, name: e.target.value } : x) })} />
-          <button className="x" onClick={() => mark({ debts: data.debts.filter(x => x.id !== i.id) })}>✕</button></div>
-        <div className="row wrap">
-          <label>Tipo<select value={i.type} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, type: e.target.value as DebtType } : x) })}>
-            {Object.entries(DEBT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-          <label>Saldo devedor<input type="number" value={i.balance || ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, balance: num(e.target.value) } : x) })} /></label>
-          <label>Juros % a.m.<input type="number" value={i.rate || ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, rate: num(e.target.value) } : x) })} /></label>
-          <label>Parcela mínima<input type="number" value={i.minPayment || ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, minPayment: num(e.target.value) } : x) })} /></label>
-          <label>Vence dia (opcional)<input type="number" inputMode="numeric" min={1} max={31} placeholder="ex.: 10" value={i.dueDay ?? ''} onChange={e => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, dueDay: day(e.target.value) } : x) })} /></label>
-        </div></div>)}
-      <button className="btn ghost" onClick={() => mark({ debts: [...data.debts, { id: uid(), name: 'Nova dívida', type: 'outro', balance: 0, rate: 0, minPayment: 0 }] })}>+ Adicionar dívida</button>
+      <p className="hint">Informe o que você sabe: quanto falta pagar, o valor da parcela e quantas faltam. Se não souber os juros, o app calcula.</p>
+      {data.debts.map(i => <DebtCard key={i.id} d={i} set={pp => mark({ debts: data.debts.map(x => x.id === i.id ? { ...x, ...pp } : x) })} remove={() => mark({ debts: data.debts.filter(x => x.id !== i.id) })} />)}
+      <button className="btn ghost" onClick={() => mark({ debts: [...data.debts, { id: uid(), name: 'Nova dívida', type: 'outro', balance: 0, rate: 0, minPayment: 0, rateMode: 'calc', rateUnit: 'am' }] })}>+ Adicionar dívida</button>
     </div>
     <div className="card"><h3>Patrimônio (bens e aplicações)</h3>
-      <p className="hint">O que você tem: imóvel, carro, investimentos, dinheiro em conta. "Líquido" = dá para usar rápido sem perder valor.</p>
-      {data.assets.map(i => <div className="debt" key={i.id}>
-        <div className="row"><input value={i.name} onChange={e => mark({ assets: data.assets.map(x => x.id === i.id ? { ...x, name: e.target.value } : x) })} />
-          <button className="x" onClick={() => mark({ assets: data.assets.filter(x => x.id !== i.id) })}>✕</button></div>
-        <div className="row wrap">
-          <label>Tipo<select value={i.type} onChange={e => { const t = e.target.value as AssetType; mark({ assets: data.assets.map(x => x.id === i.id ? { ...x, type: t, liquid: ASSET_TYPES[t].liquid } : x) }); }}>
-            {Object.entries(ASSET_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
-          <label>Valor estimado<input type="number" inputMode="decimal" value={i.value || ''} onChange={e => mark({ assets: data.assets.map(x => x.id === i.id ? { ...x, value: num(e.target.value) } : x) })} /></label>
-          <label>Liquidez<select value={i.liquid ? 'l' : 'i'} onChange={e => mark({ assets: data.assets.map(x => x.id === i.id ? { ...x, liquid: e.target.value === 'l' } : x) })}>
-            <option value="l">Líquido</option><option value="i">Ilíquido</option></select></label>
-        </div></div>)}
+      <p className="hint">O que você tem: dinheiro em conta, investimentos, previdência, imóvel, carro. Escolha o tipo — o app separa sozinho o que é <b>disponível rápido</b> (conta para emergências).</p>
+      {data.assets.map(i => <AssetCard key={i.id} a={i} data={data} mark={mark} goGoals={goGoals} />)}
       <button className="btn ghost" onClick={() => mark({ assets: [...data.assets, { id: uid(), name: 'Novo bem', type: 'outros', value: 0, liquid: false }] })}>+ Adicionar bem</button>
     </div>
     <div className="card"><h3>Reserva de emergência</h3>
-      <label>Quanto você tem guardado hoje<input type="number" value={data.reserve || ''} onChange={e => mark({ reserve: num(e.target.value) })} /></label>
+      <label className="f-money solo">Quanto você tem guardado hoje<MoneyInput label="Reserva de emergência guardada hoje" value={data.reserve} onChange={n => mark({ reserve: n ?? 0 })} /></label>
     </div>
   </>;
 }
@@ -273,9 +274,9 @@ function Diagnosis({ data }: { data: Data }) {
       <div className="grid3">
         <Stat label="Patrimônio total" n={r.totalAssets + r.reserve} f={brl0} />
         <Stat label="Patrimônio líquido" n={r.netWorth} f={brl0} bad={r.netWorth < 0} />
-        <Stat label="Ativos líquidos" n={r.liquidAssets + r.reserve} f={brl0} />
+        <Stat label="Disponível rápido" sub="dinheiro que você consegue usar em poucos dias" n={r.liquidAssets + r.reserve} f={brl0} />
       </div>
-      <p className="hint">Patrimônio líquido = tudo o que você tem − tudo o que deve. Ativos líquidos (incluindo a reserva) contam para a reserva de emergência.</p>
+      <p className="hint">Patrimônio líquido = tudo o que você tem − tudo o que deve. Disponível rápido = reserva + conta/poupança + investimentos de resgate rápido; conta para emergências.</p>
       <Disc /></div>
     <div className="card"><h3>O que isso significa</h3>
       {r.findings.map((f, i) => <div key={i} className={`finding ${f.tone}`}><b>{f.title}</b><p>{f.text}</p></div>)}<Disc /></div>
@@ -307,7 +308,7 @@ function Plan({ data, openSim, upd, goForecast }: { data: Data; openSim: () => v
         <Tooltip {...TT} formatter={(v) => brl(Number(v))} labelFormatter={l => `Mês ${l}`} /><Legend formatter={legendFmt} wrapperStyle={{ paddingTop: 6 }} />
         <Line dataKey="Avalanche" stroke="#f7b731" dot={false} strokeWidth={2.5} animationDuration={1400} /><Line dataKey="Bola de neve" stroke={CH.silver} strokeDasharray="6 4" dot={false} strokeWidth={2.25} animationDuration={1400} /></LineChart></ResponsiveContainer>
       <table><thead><tr><th>Dívida (avalanche)</th><th>Juros</th><th>Quitada no mês</th></tr></thead><tbody>
-        {order(data.debts, 'avalanche').map(d => <tr key={d.id}><td>{d.name}</td><td>{d.rate}%</td><td>{p.payoff!.av.payoff[d.id] ?? '—'}</td></tr>)}</tbody></table><Disc />
+        {order(data.debts, 'avalanche').map(d => <tr key={d.id}><td>{d.name}</td><td>{fmtAm(d.rate)}</td><td>{p.payoff!.av.payoff[d.id] ?? '—'}</td></tr>)}</tbody></table><Disc />
     </div>}
     <p className="disc">Estimativas simplificadas (juros compostos mensais, sem IOF/multas). Confirme valores com seu banco.</p>
   </>;
@@ -331,9 +332,9 @@ function Goals({ data, upd }: { data: Data; upd: (p: Partial<Data>) => void }) {
       {ev.hasExpensive && <div className="finding bad"><b>Atenção: você tem dívidas caras</b><p>Enquanto existirem dívidas como rotativo ou cheque especial, a prioridade é quitá-las — os juros delas crescem mais rápido do que qualquer objetivo. Por isso só 20% da sua sobra é considerada para objetivos agora.</p></div>}
       {!ev.hasExpensive && ev.hasDebts && <div className="finding warn"><b>Dívidas primeiro</b><p>Enquanto quita as dívidas, 80% da sobra vai para elas e 20% para objetivos.</p></div>}
       <Disc /></div>
-    {ev.results.map(({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt, lump }) => <div className="card goal" key={g.id}>
+    {ev.results.map(({ goal: g, target, months, need, allocated, allocatedAfter, fits, progress, alt, lump, prev }) => <div className="card goal" key={g.id}>
       <div className="goal-head"><ProgressRing value={progress} label={`Progresso ${pct(progress)}`} />
-        <div><b className="goal-name">{g.name || 'Objetivo'}</b><small>{brl(g.saved)} de {brl(target)}</small>
+        <div><b className="goal-name">{g.name || 'Objetivo'}</b><small>{brl(g.saved + (prev?.saved || 0))} de {brl(target)}</small>
           <span className={`pill ${fits ? 'ok' : 'warn'}`}>{fits ? 'Cabe no orçamento' : 'Não cabe hoje'}</span></div></div>
       <div className="row"><input value={g.name} onChange={e => set(g.id, { name: e.target.value })} />
         <button className="x" onClick={() => upd({ isExample: false, goals: data.goals.filter(x => x.id !== g.id) })}>✕</button></div>
@@ -342,20 +343,21 @@ function Goals({ data, upd }: { data: Data; upd: (p: Partial<Data>) => void }) {
           {Object.entries(GOAL_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label>Prioridade<select value={g.priority} onChange={e => set(g.id, { priority: e.target.value as Priority })}>
           {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-        <label>Já guardado<input type="number" inputMode="decimal" value={g.saved || ''} onChange={e => set(g.id, { saved: num(e.target.value) })} /></label>
+        <label>Já guardado<MoneyInput label="Já guardado" value={g.saved} onChange={n => set(g.id, { saved: n ?? 0 })} /></label>
       </div>
       {g.type === 'aposentadoria' && g.retire ? <div className="row wrap">
-        <label>Renda mensal desejada<input type="number" value={g.retire.monthlyIncome || ''} onChange={e => set(g.id, { retire: { ...g.retire!, monthlyIncome: num(e.target.value) } })} /></label>
+        <label>Renda mensal desejada<MoneyInput label="Renda mensal desejada" value={g.retire.monthlyIncome} onChange={n => set(g.id, { retire: { ...g.retire!, monthlyIncome: n ?? 0 } })} /></label>
         <label>Idade atual<input type="number" value={g.retire.age || ''} onChange={e => set(g.id, { retire: { ...g.retire!, age: num(e.target.value) } })} /></label>
         <label>Aposentar aos<input type="number" value={g.retire.retireAge || ''} onChange={e => set(g.id, { retire: { ...g.retire!, retireAge: num(e.target.value) } })} /></label>
         <label>Rendimento real % a.m.<input type="number" step="0.1" value={g.retire.rate || ''} onChange={e => set(g.id, { retire: { ...g.retire!, rate: num(e.target.value) } })} /></label>
       </div> : <div className="row wrap">
-        <label>Valor do objetivo<input type="number" inputMode="decimal" value={g.target || ''} onChange={e => set(g.id, { target: num(e.target.value) })} /></label>
+        <label>Valor do objetivo<MoneyInput label="Valor do objetivo" value={g.target} onChange={n => set(g.id, { target: n ?? 0 })} /></label>
         <label>Data alvo<input type="month" value={g.date} onChange={e => set(g.id, { date: e.target.value })} /></label>
       </div>}
       <div className={`finding ${fits ? 'good' : 'warn'}`}>
         {g.type === 'aposentadoria' && g.retire && <p>Para viver de {brl(g.retire.monthlyIncome)}/mês (valores de hoje) você precisa juntar cerca de <b>{brl(target)}</b> até os {g.retire.retireAge} anos ({Math.round(months / 12)} anos).</p>}
         <b>Guardar {brl(need)}/mês {g.type !== 'aposentadoria' && `por ${months} meses`}</b>
+        {prev && <p className="prev-note">Já considera {brl(prev.saved)} da sua previdência{prev.monthly > 0 ? ` e o aporte de ${brl(prev.monthly)}/mês que já está nos seus gastos (por isso “guardar” é só o que falta além dele)` : ''}.{prev.outOfBudget > 0 ? ` O aporte de ${brl(prev.outOfBudget)}/mês ainda não conta: lance-o em Gastos (Meus dados › Patrimônio) para entrar no plano.` : ''}</p>}
         {lump > 0 && <p className="lump-note">Já considera {brl(Math.round(lump))} de receitas futuras ({data.settings.recvMode === 'garantido' ? 'garantidas' : 'valor ponderado'}) até a data. Só conte com elas quando o dinheiro cair.</p>}
         <p>{fits ? '✅ Cabe no seu orçamento livre atual.' : `⚠️ Não cabe agora: sobram ${brl(allocated)}/mês para este objetivo (pela ordem de prioridade).`}</p>
         {alt && <ul>

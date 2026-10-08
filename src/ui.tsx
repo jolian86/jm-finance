@@ -82,3 +82,31 @@ export const Icon = {
   target: () => <svg viewBox="0 0 24 24" {...P}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.2" /></svg>,
   chat: () => <svg viewBox="0 0 24 24" {...P}><path d="M4 5h16v11H9l-5 4z" /><path d="M8 9.5h8M8 12.5h5" /></svg>,
 };
+
+// ---------- Campo de dinheiro (R$) ----------
+const fmtMoney = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Aceita "10000", "10.000", "10.000,50", "10000,5", "10000.5". Vazio → undefined. */
+export function parseMoney(t: string): number | undefined {
+  let s = t.replace(/[^\d.,-]/g, ''); if (!s) return undefined;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = Number(s); return Number.isFinite(n) ? n : undefined;
+}
+/** Campo com prefixo "R$": mostra 10.000,00 e, ao tocar, vira texto simples para editar. */
+export function MoneyInput({ value, onChange, label, placeholder = '0,00', readOnly, className, title }: {
+  value: number | undefined; onChange: (n: number | undefined) => void; label: string; placeholder?: string; readOnly?: boolean; className?: string; title?: string;
+}) {
+  const [txt, setTxt] = useState<string | null>(null);
+  const shown = txt ?? (value ? fmtMoney(value) : '');
+  return <span className={`money ${className ?? ''}`}><span className="money-pre" aria-hidden="true">R$</span>
+    <input type="text" inputMode="decimal" autoComplete="off" enterKeyHint="done" aria-label={label} title={title ?? label} placeholder={placeholder} value={shown} readOnly={readOnly} data-money=""
+      onFocus={e => { if (readOnly) return; const raw = value ? String(Math.round(value * 100) / 100).replace('.', ',') : ''; setTxt(raw); const el = e.currentTarget; setTimeout(() => { if (el.value === raw && document.activeElement === el) el.select(); }, 0); }}
+      onChange={e => { const t = e.target.value.replace(/[^\d.,]/g, ''); setTxt(t); onChange(parseMoney(t)); }}
+      onBlur={() => setTxt(null)} /></span>;
+}
+
+/** Dia do vencimento: campo curto (2 dígitos), 1–31. */
+export function DayInput({ value, onChange, label = 'Dia de vencimento (opcional)', prefix = true }: { value: number | undefined; onChange: (v: string) => void; label?: string; prefix?: boolean }) {
+  return <span className={`dayf ${prefix ? 'pre' : ''}`}>{prefix && <span className="day-pre" aria-hidden="true">dia</span>}
+    <input className="due" type="number" inputMode="numeric" min={1} max={31} step={1} placeholder="—" aria-label={label} title={label} value={value ?? ''} onChange={e => onChange(e.target.value.slice(0, 2))} /></span>;
+}
