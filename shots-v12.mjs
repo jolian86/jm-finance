@@ -100,7 +100,7 @@ for (const [w, h, kind] of VPS) {
       const D = await DD(); ok(D.incomes[0].amount === Math.round(150 * 15 * 0.85), `${n} · aprendeu 15 dias/mês: ${D.incomes[0].amount}`);
       await scan('Início (mês fraco)');
       await to('.daily-today'); await shot('08-inicio-mes-abaixo-do-esperado');
-      await p.click('.bell'); await wait(700);
+      await p.click('.bell'); await wait(1500);
       const at = (await p.locator('.sheet').innerText()).replace(/\u00a0/g, ' ');
       ok(at.includes('Diárias de pedreiro: mês mais fraco até agora') && at.includes('Este mês: 3 dias, R$ 450,00'), `${n} · alerta de mês fraco ausente: ${at.slice(0, 200)}`);
       if (n === '390x844') console.log('alerta:', at.match(/Diárias de pedreiro: mês mais fraco[^\n]*\n[^\n]*/)?.[0]);
