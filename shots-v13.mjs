@@ -41,7 +41,7 @@ for (const [w, h, kind] of VPS) {
       const ov = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(ov <= 1, `${n}/${scheme} · overflow em ${where}: ${ov}px`);
       const hd = await p.evaluate(() => { const hh = document.querySelector('header'); if (!hh) return null; const r = hh.getBoundingClientRect(); return [...hh.querySelectorAll('*')].some(e => { const q = e.getBoundingClientRect(); return q.width && (q.right > r.right + 0.5 || q.left < r.left - 0.5); }); });
       ok(!hd, `${n}/${scheme} · algo sai do cabeçalho em ${where}`); };
-    await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); }); await p.reload(); await wait(700);
+    await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); localStorage.setItem('jm:themePicked', '1'); }); await p.reload(); await wait(700);
     let t = await T(); ok(t[0] === scheme && t[1] === (scheme === 'light' ? '#faf6ee' : '#080707') && t[2] === null, `${n}/${scheme} · 1º uso não seguiu o aparelho: ${t}`);
     await chk('boas-vindas'); await shot('00-boas-vindas');
     await p.click('.welcome .accept'); await p.locator('.welcome .btn').last().click(); await wait(700);

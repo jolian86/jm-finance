@@ -17,7 +17,7 @@ for (const [w, h, kind] of VPS) {
     ok(!/NaN|Infinity|undefined/.test(t), `${n} · NaN/undefined em ${where}`);
     const ov = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(ov <= 1, `${n} · overflow horizontal em ${where}: ${ov}px`);
   };
-  await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); }); await p.reload(); await wait(600);
+  await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); localStorage.setItem('jm:themePicked', '1'); }); await p.reload(); await wait(600);
   await p.click('.welcome .accept'); await p.locator('.welcome .btn').last().click(); await wait(600);
   await p.click('text=Carregar dados de EXEMPLO'); await wait(800);
   await scan('Início');

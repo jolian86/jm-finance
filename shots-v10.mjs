@@ -10,7 +10,7 @@ for (const [w, h, kind] of VPS) {
   const n = `${w}x${h}`;
   const ctx = await b.newContext({ colorScheme: process.env.SCHEME || 'light', viewport: { width: w, height: h }, deviceScaleFactor: kind === 'desktop' ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !kind, hasTouch: kind !== 'desktop' });
   const p = await ctx.newPage(); p.on('dialog', d => d.accept()); p.on('pageerror', e => errs.push(`${n}: ${e.message}`)); p.on('console', m => m.type() === 'error' && errs.push(`${n}: ${m.text()}`));
-  await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); }); await p.reload(); await p.waitForTimeout(600);
+  await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); localStorage.setItem('jm:themePicked', '1'); }); await p.reload(); await p.waitForTimeout(600);
   await p.click('.welcome .accept'); await p.locator('.welcome .btn').last().click(); await p.waitForTimeout(600);
   await p.click('text=Carregar dados de EXEMPLO'); await p.waitForTimeout(800);
   // valores grandes para checar se cabem

@@ -43,7 +43,7 @@ for (const vp of VPS) {
   const kbOff = async () => { await p.evaluate(() => document.activeElement?.blur()); await p.setViewportSize({ width: vp.w, height: vp.h }); await wait(400); };
 
   await p.goto(U + '?nosplash');
-  await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); });
+  await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); localStorage.setItem('jm:themePicked', '1'); });
   await p.reload(); await wait(700);
   // Termos (primeiro uso): botão Começar alcançável
   await p.locator('.welcome .accept').scrollIntoViewIfNeeded(); await p.click('.welcome .accept'); await wait(200);

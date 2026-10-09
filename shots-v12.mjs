@@ -21,7 +21,7 @@ for (const [w, h, kind] of VPS) {
     const to = async (sel, off = 70) => p.evaluate(([s, o]) => { const el = document.querySelector(s); if (el) scrollTo(0, el.getBoundingClientRect().top + scrollY - o); }, [sel, off]);
     const scan = async where => { const t = await p.evaluate(() => document.querySelector('main').innerText); const m = t.match(BAN) || t.match(BAD); ok(!m, `${n} · ${where}: "${m?.[0]}"`);
       const ov = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(ov <= 1, `${n} · overflow em ${where}: ${ov}px`); };
-    await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); }); await p.reload(); await wait(600);
+    await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); localStorage.setItem('jm:themePicked', '1'); }); await p.reload(); await wait(600);
     await p.click('.welcome .accept'); await p.locator('.welcome .btn').last().click(); await wait(600);
     if (phase === 'hoje') {
       await p.click('text=Carregar dados de EXEMPLO'); await wait(900); await p.click('nav >> text=Início'); await wait(800);
