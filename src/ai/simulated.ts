@@ -209,10 +209,24 @@ function futureIncome(s: S, t: string) {
   lines.push('\n✅ Use o dinheiro quando ele entrar. ❌ Não gaste por conta antes: nada de parcelas ou compras contando com valor provável ou incerto.');
   return lines.join('\n') + END;
 }
+function daily(s: S) {
+  const D = s.dailyIncome ?? [];
+  if (!D.length) return 'Se você recebe por dia (diária), em “Meus dados › Rendas mensais” toque em “+ Recebo por dia”. Informe quanto ganha por dia e quantos dias costuma trabalhar no mês — o app calcula o mês e planeja com uma folga de segurança.' + END;
+  const l: string[] = [];
+  for (const d of D) {
+    l.push(`${d.name}: cerca de ${brl(d.perDay)} por dia, ${d.daysPerMonth.toLocaleString('pt-BR')} dias por mês ≈ ${brl(d.expectedMonth)} por mês${d.learned ? ' (pelo que você marcou)' : ' (pela sua estimativa)'}.`);
+    l.push(`Para o plano, conto ${brl(d.planMonth)} por mês — um pouco menos, por segurança, porque tem mês com menos trabalho.`);
+    if (d.thisMonthDays) l.push(`Este mês: ${d.thisMonthDays} ${d.thisMonthDays === 1 ? 'dia' : 'dias'}, ${brl(d.thisMonthTotal)} — ${d.thisMonthStatus}.`);
+    if (d.thisMonthStatus === 'abaixo do esperado') l.push('⚠️ O mês está mais fraco: segure os gastos que dá para adiar e não assuma parcelas novas agora.');
+  }
+  l.push('\nDica: toque em “Trabalhei hoje” no Início nos dias em que trabalhar. Com isso o app aprende o seu ritmo de verdade. É opcional.');
+  return l.join('\n') + END;
+}
 function route(text: string, s: S): string | ChatReply {
   const t = norm(text);
   if (/^(oi|ola|bom dia|boa tarde|boa noite|ajuda|help)\b/.test(t) && t.length < 25) return HELP;
   if (!s.hasData) return noData();
+  if (/diaria|por dia|trabalhei hoje|bico|dias trabalh/.test(t)) return daily(s);
   if (/\bplr\b|\bppr\b|13\s*(º|o\b)|decimo|restituic|honorari|recebiv|receita(s)? futura|\bbonus\b|safra|repasse|\bexito\b|sucumb|\bcomiss/.test(t) || (/ferias/.test(t) && /receb|terco|1\/3|dinheiro/.test(t))) return futureIncome(s, t);
   if (/vender|patrimonio|bens?\b|imovel|usar (meu|minha)/.test(t)) return assets(s);
   if (/compr|financi|parcel|gastar|trocar de/.test(t) && !/juntar|guardar para|guardar pra/.test(t)) {

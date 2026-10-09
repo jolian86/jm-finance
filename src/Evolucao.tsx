@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ReferenceArea } from 'recharts';
-import { Data, CATEGORIES, Category, DISCLAIMER, brl, thisMonth } from './finance';
+import { Data, CATEGORIES, Category, DISCLAIMER, brl, thisMonth, isDaily, dailyStats } from './finance';
 import { series, deltas, ymTitle, ymShort, needsClosing } from './history';
 import { CH, COLORS, AX, AXY, TT, legendFmt } from './chartTheme';
 
@@ -19,6 +19,12 @@ export default function Evolucao({ data, onCloseMonth }: { data: Data; onCloseMo
     return [...set].map(c => CATEGORIES[c as Category]?.label).filter(Boolean) as string[];
   }, [data]);
   const pending = needsClosing(data, thisMonth());
+  const dailyPts = useMemo(() => {
+    const ds = data.incomes.filter(isDaily); if (!ds.length) return [];
+    const pts = data.history.filter(h => h.daily?.some(x => x.logged)).map(h => ({ label: ymShort(h.month), dias: h.daily!.reduce((t, x) => t + x.days, 0), ganho: h.daily!.reduce((t, x) => t + x.total, 0) }));
+    const cur = ds.map(i => dailyStats(i)); if (cur.some(c => c.loggedDays)) pts.push({ label: ymShort(thisMonth()) + '*', dias: cur.reduce((t, c) => t + c.monthDays, 0), ganho: cur.reduce((t, c) => t + c.monthTotal, 0) });
+    return pts.slice(-12);
+  }, [data]);
   const brlTT = { ...TT, formatter: (v: unknown) => brl(Number(v)) };
   return <>
     <div className="card month-card">
@@ -63,6 +69,12 @@ export default function Evolucao({ data, onCloseMonth }: { data: Data; onCloseMo
           <Legend iconType="circle" iconSize={9} itemSorter={null} formatter={legendFmt} wrapperStyle={{ lineHeight: '20px', paddingTop: 6 }} />
           {cats.map((c, i) => <Bar key={c} dataKey={c} stackId="s" fill={COLORS[i % COLORS.length]} stroke="#0d0b09" strokeWidth={1} animationDuration={1000} />)}</BarChart></ResponsiveContainer>
       </Card>
+      {dailyPts.length > 0 && <Card title="Dias trabalhados (diárias)" hint="Pelos dias que você marcou. Ao fechar o mês, o total entra no cálculo da sua renda por dia.">
+        <ResponsiveContainer width="100%" height={180}><BarChart data={dailyPts} margin={{ top: 8, right: 8 }}>
+          {GRID}<XAxis dataKey="label" {...AX} /><YAxis width={30} allowDecimals={false} {...AX} /><Tooltip {...TT} formatter={(v, _n, it) => [`${v} dias · ${brl(Number((it as { payload?: { ganho?: number } })?.payload?.ganho ?? 0))}`, 'Trabalhou']} cursor={{ fill: 'rgba(247,183,49,.06)' }} />
+          <Bar dataKey="dias" name="Dias trabalhados" fill={CH.gold} radius={[6, 6, 0, 0]} animationDuration={1000} /></BarChart></ResponsiveContainer>
+        <ul className="daily-evo">{dailyPts.slice(-4).map(p => <li key={p.label}>{p.label}: <b>{p.dias} {p.dias === 1 ? 'dia' : 'dias'}</b>, {brl(p.ganho)}</li>)}</ul>
+      </Card>}
       <p className="disc">* mês atual, ainda em andamento.</p>
     </>}
   </>;

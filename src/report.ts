@@ -1,4 +1,5 @@
 // Relatório em PDF gerado 100% no aparelho (jsPDF). Fundo claro para impressão, faixa preta + dourado da marca.
+import { isDaily, dailyStats, DAILY_SAFETY, STATUS_TXT } from './finance';
 import { jsPDF } from 'jspdf';
 import logoUrl from './assets/jm-mark-pdf.jpg';
 import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, DISCLAIMER, Category, brl, diagnose, actionPlan, evaluateGoals, monthsUntil, fmtAm, STRATEGY } from './finance';
@@ -134,6 +135,16 @@ export async function buildReport(d: Data, now = new Date()): Promise<jsPDF> {
     font('helvetica', 'normal', 6.8); col(MUTED); doc.text(t(it[2]), cx + 3.5, cy + 16.4);
   });
   y += 2 * (bh + 3) + 1; disc();
+
+  // ---------- Renda por dia (diária) ----------
+  const dly = d.incomes.filter(isDaily);
+  if (dly.length) {
+    section('Renda por dia (diária)', 30);
+    dly.forEach(i => { const st = dailyStats(i, now);
+      para(`${i.name}: ${brl0(st.avgRate)} por dia x ${st.avgDays.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} dias por mês = cerca de ${brl0(st.expected)} por mês ${st.learnedRate ? '(pelos dias marcados)' : '(estimativa informada)'}. O plano conta com ${brl0(st.base)} por mês, ${st.usesHistory ? 'a média dos meses mais fracos' : `${Math.round(DAILY_SAFETY * 100)}% a menos, por segurança`}.${st.loggedDays ? ` Este mês: ${st.monthDays} ${st.monthDays === 1 ? 'dia' : 'dias'}, ${brl0(st.monthTotal)} (${STATUS_TXT[st.status]}).` : ''}`, 9.4, INK);
+      y += 1.5; });
+    disc();
+  }
 
   // ---------- Patrimônio ----------
   section('O que você tem', 40);

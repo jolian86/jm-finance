@@ -1,4 +1,4 @@
-import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, diagnose, actionPlan, order, evaluateGoals, varStats } from '../finance';
+import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, diagnose, actionPlan, order, evaluateGoals, varStats, isDaily, dailyStats, STATUS_TXT } from '../finance';
 import { RECV_TYPES, CERT, fmtOccDate, lumpSentence, isOpen, allOccurrences } from '../recv';
 import type { FinancialSummary } from './types';
 
@@ -26,5 +26,7 @@ export function buildSummary(d: Data): FinancialSummary {
       upcoming: allOccurrences(d).filter(isOpen).slice(0, 8).map(o => ({ name: o.recv.name + (o.inst.label ? ` (${o.inst.label})` : ''), type: o.recv.type, when: fmtOccDate(o.ym, o.day), net: o.net, certainty: CERT[o.certainty].label, prob: o.prob })),
       uses: p.recv.lumpsFull.filter(l => l.occ.recv.recurrence !== 'monthly').slice(0, 8).map(l => ({ type: l.occ.recv.type, text: lumpSentence(l) })) },
     variableIncome: d.incomes.filter(i => i.variable).map(i => { const v = varStats(i.history ?? []); return { name: i.name, base: v.base || i.amount, avg: v.avg, min: v.min }; }),
+    dailyIncome: d.incomes.filter(isDaily).map(i => { const st = dailyStats(i); return { name: i.name, perDay: Math.round(st.avgRate * 100) / 100, daysPerMonth: Math.round(st.avgDays * 10) / 10, expectedMonth: st.expected, planMonth: st.base,
+      learned: st.learnedRate, thisMonthDays: st.monthDays, thisMonthTotal: st.monthTotal, thisMonthStatus: st.status === 'sem' ? 'não marca os dias' : STATUS_TXT[st.status] }; }),
   };
 }

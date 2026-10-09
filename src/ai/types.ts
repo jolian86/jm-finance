@@ -26,6 +26,8 @@ export type FinancialSummary = {
   receivables: { count: number; expected: number; weighted: number; guaranteed: number; mode: string; overdue: number;
     upcoming: { name: string; type: string; when: string; net: number; certainty: string; prob: number }[]; uses: { type: string; text: string }[] };
   variableIncome: { name: string; base: number; avg: number; min: number }[];
+  /** renda por dia (diária): valor por dia, dias por mês (estimados ou aprendidos), quanto o plano conta e como vai o mês atual */
+  dailyIncome: { name: string; perDay: number; daysPerMonth: number; expectedMonth: number; planMonth: number; learned: boolean; thisMonthDays: number; thisMonthTotal: number; thisMonthStatus: string }[];
 };
 
 /** Interface agnóstica de provedor: qualquer backend (simulação, OpenAI, etc.) implementa isto. */
