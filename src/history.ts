@@ -1,4 +1,4 @@
-import { Data, Snapshot, Category, CATEGORIES, diagnose, exampleData, brl, uid } from './finance';
+import { Data, Snapshot, Category, CATEGORIES, diagnose, exampleData, brl, uid, isDaily, withDaily } from './finance';
 
 export const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 export const MONTHS_FULL = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -28,6 +28,7 @@ export function snapshot(d: Data): Snapshot {
     planned: plannedByCategory(d), spent, totalDebt: r.totalDebt, debts: d.debts.map(x => ({ name: x.name, balance: x.balance })),
     totalAssets: r.totalAssets + r.reserve, netWorth: r.netWorth, reserve: r.effReserve, reserveMonths: r.reserveMonths, score: r.score, level: r.level,
     goals: d.goals.map(g => ({ name: g.name, saved: g.saved, target: g.target, progress: g.target ? Math.min(1, g.saved / g.target) : 0 })),
+    daily: d.incomes.filter(isDaily).map(i => { const e = Object.entries(i.daily?.log ?? {}).filter(([k]) => k.startsWith(d.month)); return { name: i.name, days: e.length, total: e.reduce((t, [, v]) => t + v, 0), logged: e.length > 0 }; }),
   };
 }
 
@@ -36,7 +37,10 @@ export function closeMonth(d: Data, calendarMonth: string): Data {
   const snap = snapshot(d);
   const history = [...d.history.filter(h => h.month !== d.month), snap].sort((a, b) => a.month.localeCompare(b.month)).slice(-36);
   const next = ymAdd(d.month, 1);
-  return { ...d, history, month: next > calendarMonth ? next : calendarMonth, actuals: {}, dismissedAlerts: [] };
+  // diárias: o total marcado no mês fechado entra no histórico (assim o app aprende os meses fracos)
+  const incomes = d.incomes.map(i => { if (!isDaily(i)) return i; const e = Object.entries(i.daily?.log ?? {}).filter(([k]) => k.startsWith(d.month));
+    return withDaily(e.length ? { ...i, history: [...(i.history ?? []), Math.round(e.reduce((t, [, v]) => t + v, 0) * 100) / 100].slice(-12) } : i); });
+  return { ...d, incomes, history, month: next > calendarMonth ? next : calendarMonth, actuals: {}, dismissedAlerts: [] };
 }
 
 export const needsClosing = (d: Data, calendarMonth: string) => d.incomes.length > 0 && d.month < calendarMonth;

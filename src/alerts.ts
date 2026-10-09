@@ -1,5 +1,5 @@
 import { allOccurrences, fmtOccDate, CERT } from './recv';
-import { Data, Category, CATEGORIES, diagnose, evaluateGoals, brl, thisMonth , fmtAm } from './finance';
+import { Data, Category, CATEGORIES, diagnose, evaluateGoals, brl, thisMonth, fmtAm, isDaily, dailyStats } from './finance';
 import { plannedByCategory, ymShort, needsClosing } from './history';
 import { billStage, BillStage, iso, br, upcomingReminders, nonBusinessReason } from './businessDays';
 
@@ -33,6 +33,12 @@ export function computeAlerts(d: Data, now = new Date()): Alert[] {
   if (!d.isExample && d.incomes.length && ref) {
     const days = Math.floor((Date.now() - Date.parse(ref)) / 864e5);
     if (days > 30) out.push({ id: `backup-${d.month}`, level: 'info', title: 'Faça um backup', text: `${d.settings.lastBackupAt ? `Seu último backup foi há ${days} dias.` : 'Você ainda não fez nenhum backup.'} Seus dados ficam só neste aparelho: um backup leva segundos e protege contra troca de celular ou limpeza do navegador.`, tab: 'dados', cta: 'Fazer backup', action: 'backup' });
+  }
+  // diárias: mês bem abaixo do esperado (só quando a pessoa marca os dias)
+  for (const i of d.incomes.filter(isDaily)) {
+    const st = dailyStats(i, now);
+    if (st.status === 'abaixo' && now.getDate() >= 10) out.push({ id: `diaria-${i.id}-${thisMonth()}`, level: 'warn', title: `${i.name}: mês mais fraco até agora`,
+      text: `Este mês: ${st.monthDays} ${st.monthDays === 1 ? 'dia' : 'dias'}, ${brl(st.monthTotal)}. Num mês normal, até hoje seriam uns ${brl(Math.round(st.expSoFar))}. Se continuar assim, segure os gastos que dá para adiar.`, tab: 'dados', cta: 'Ver diárias' });
   }
   // receitas futuras: atrasadas e chegando em até 3 dias
   for (const o of allOccurrences(d, now, 2)) {

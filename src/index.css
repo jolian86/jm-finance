@@ -466,3 +466,27 @@ input.due::-webkit-inner-spin-button,input.due::-webkit-outer-spin-button{-webki
 .fgrid>label>.money,.fgrid>label>input,.fgrid>label>select,.fgrid>label>.dayf{margin-top:auto}
 .recv-form small.fhint{display:block;line-height:1.45;margin:-4px 0 12px}
 .fgrid>label>.money{flex:0 0 auto}
+/* ---- v12: renda por dia (diária) ---- */
+.add-row{display:flex;flex-wrap:wrap;gap:8px}.add-row .btn{flex:1 1 10rem}
+.daily-box{border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin:2px 0 8px;display:flex;flex-direction:column;gap:6px}
+.daily-grid{display:flex;flex-wrap:wrap;gap:10px 8px}.daily-grid>label{flex:1 1 9rem;min-width:0}
+.daily-grid>label>.money,.daily-grid>label>input{margin-top:auto;flex:0 0 auto}
+.daily-grid input[type=number]{text-align:center}
+.daily-calc{margin:2px 0 0;font-size:14px;color:var(--text)}
+.daily-learn,.daily-plan{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.daily-cal-wrap{border-top:1px dashed var(--line2);margin-top:4px;padding-top:4px}
+.daily-cal-wrap .fhint{display:block;margin:2px 0 8px;line-height:1.45}
+.daily-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;max-width:22rem}
+.dc-wd{text-align:center;font-size:11px;color:var(--faint)}
+.dc-day{aspect-ratio:1;min-height:34px;border-radius:9px;border:1px solid var(--line2);background:none;color:var(--text);font:500 13px var(--sans);cursor:pointer;padding:0}
+.dc-day:disabled{opacity:.3;cursor:default}
+.dc-day.on{background:rgba(247,183,49,.18);border-color:var(--g2);color:#ffe7a8;font-weight:700}
+.dc-day.today{box-shadow:inset 0 0 0 1px var(--muted)}.dc-day.sel{outline:2px solid var(--g2);outline-offset:1px}
+.dc-edit{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 14px;margin-top:10px}.dc-edit label{flex:1 1 10rem;max-width:16rem}.dc-edit .link{font-size:12.5px;padding-bottom:12px}
+.daily-month{margin:10px 0 2px;font-size:13px;color:var(--muted)}
+.st-abaixo{color:#fbbf24!important}.st-acima,.st-ok{color:#86efac!important}
+.daily-today h3{margin-bottom:8px}.dt-row{display:flex;flex-direction:column;gap:8px;padding:8px 0}.dt-row+.dt-row{border-top:1px solid var(--line)}
+.dt-head{display:flex;flex-direction:column;gap:2px}.dt-head small{font-size:12.5px;color:var(--muted)}
+.dt-row>.btn{align-self:flex-start}
+.dt-done{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}.dt-done span{color:#86efac;font-weight:600;font-size:14px}.dt-done .link{font-size:12.5px}
+.dt-val{max-width:16rem}

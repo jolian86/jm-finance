@@ -8,6 +8,8 @@ import { DebtCard } from './DebtCard';
 import { AssetCard } from './AssetCard';
 import Backup from './Backup';
 import { ReceivablesCard, ForecastCard, VarIncome, ModeToggle } from './Receivables';
+import { isDaily, withDaily, dailyStats, DEFAULT_DAYS } from './finance';
+import { DailyFields, DailyToday } from './Daily';
 import { varStats, fmtAm, STRATEGY, inferKind, withAutoKind, newRetire, amToAa, aaToAm, DEFAULT_REAL_AA, DEFAULT_REAL_AM, Expense } from './finance';
 import { Welcome, TermsSheet, deleteAllData } from './Terms';
 import { TERMS_VERSION, hasAccepted } from './terms';
@@ -80,7 +82,7 @@ export default function App() {
       <main>
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} setData={replaceData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
+            {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} upd={upd} setData={replaceData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
             {tab === 'dados' && <><Inputs data={data} upd={upd} setData={replaceData} onCloseMonth={() => setAskClose(true)} goGoals={() => go('objetivos')} /><Backup data={data} setData={setData} />
               <p className="terms-foot"><button className="link" onClick={() => setTermsOpen(true)}>Termos e privacidade</button>{acceptedOn && <> · aceitos em {acceptedOn} (versão {data.settings.terms!.version})</>}</p></>}
             {tab === 'diagnostico' && (hasData ? <>
@@ -124,7 +126,7 @@ function Empty({ go }: { go: (t: Tab) => void }) {
   return <div className="card center"><p>Cadastre pelo menos uma renda para ver esta tela.</p><button className="btn" onClick={() => go('dados')}>Cadastrar meus dados</button></div>;
 }
 
-function Home({ data, hasData, go, setData, onCloseMonth, onTerms }: { data: Data; hasData: boolean; go: (t: Tab | AlertTab) => void; setData: (d: Data) => void; onCloseMonth: () => void; onTerms: () => void }) {
+function Home({ data, hasData, go, upd, setData, onCloseMonth, onTerms }: { data: Data; hasData: boolean; go: (t: Tab | AlertTab) => void; upd: (p: Partial<Data>) => void; setData: (d: Data) => void; onCloseMonth: () => void; onTerms: () => void }) {
   const r = useMemo(() => diagnose(data), [data]);
   const ds = useMemo(() => deltas(data).slice(0, 2), [data]);
   return <>
@@ -135,6 +137,7 @@ function Home({ data, hasData, go, setData, onCloseMonth, onTerms }: { data: Dat
     </section>
     {hasData ? <>
       <ScoreCard r={r} />
+      <DailyToday data={data} setIncome={ni => upd({ incomes: data.incomes.map(x => x.id === ni.id ? ni : x) })} />
       <div className="grid2">
         <Stat label="Renda mensal" n={r.income} f={brl0} />
         <Stat label="Saldo do mês" n={r.balance} f={brl0} bad={r.balance < 0} />
@@ -188,14 +191,19 @@ function Inputs({ data, upd, setData, onCloseMonth, goGoals }: { data: Data; upd
       <button className={`btn sm ${needsClosing(data, thisMonth()) ? '' : 'ghost'}`} onClick={onCloseMonth}>Fechar mês</button></div>
     {data.isExample && <div className="card ex">Você está vendo <b>dados de exemplo fictícios</b>. Edite ou <button className="link" onClick={() => setData(emptyData())}>limpe tudo</button> para usar os seus.</div>}
     <div className="card"><h3>Rendas mensais</h3>
-      {data.incomes.map(i => { const setI = (ni: typeof i) => mark({ incomes: data.incomes.map(x => x.id === i.id ? ni : x) }); const vs = i.variable ? varStats(i.history ?? []) : null;
+      {data.incomes.map(i => { const setI = (ni: typeof i) => mark({ incomes: data.incomes.map(x => x.id === i.id ? ni : x) }); const vs = i.variable ? varStats(i.history ?? []) : null; const dly = isDaily(i);
         return <div className="income" key={i.id}><div className="row money-row">
         <input className="row-name" aria-label="Nome da renda" placeholder="Nome da renda" value={i.name} onChange={e => setI({ ...i, name: e.target.value })} />
-        <MoneyInput label={vs?.ok ? 'Valor mensal (base conservadora calculada pelos últimos meses)' : 'Valor mensal da renda'} value={i.amount} readOnly={!!vs?.ok} className={vs?.ok ? 'derived' : ''} onChange={n => setI({ ...i, amount: n ?? 0 })} />
+        <MoneyInput label={dly ? 'Por mês, para o plano (calculado pela diária)' : vs?.ok ? 'Valor mensal (base conservadora calculada pelos últimos meses)' : 'Valor mensal da renda'} value={i.amount} readOnly={dly || !!vs?.ok} className={dly || vs?.ok ? 'derived' : ''} onChange={n => setI({ ...i, amount: n ?? 0 })} />
         <button className="x" aria-label="Remover renda" onClick={() => mark({ incomes: data.incomes.filter(x => x.id !== i.id) })}>✕</button></div>
+        <label className="chk-line var-toggle"><input type="checkbox" checked={dly} onChange={e => setI(e.target.checked
+          ? withDaily({ ...i, kind: 'diaria', variable: false, daily: i.daily ? { ...i.daily, rate: i.daily.rate || Math.round(i.amount / DEFAULT_DAYS) } : { rate: Math.round(i.amount / DEFAULT_DAYS), days: DEFAULT_DAYS, log: {} } })
+          : { ...i, kind: 'mensal', amount: Math.round(dailyStats(i).expected) })} />Recebo por dia (diária)</label>
+        {dly ? <DailyFields income={i} onChange={setI} /> : <>
         <label className="chk-line var-toggle"><input type="checkbox" checked={!!i.variable} onChange={e => setI(e.target.checked ? { ...i, variable: true, history: i.history?.length ? i.history : [i.amount, i.amount, i.amount] } : { ...i, variable: false })} />Renda variável (comissão, plantões, freelas…)</label>
-        {i.variable && <VarIncome income={i} month={data.month} onChange={setI} />}</div>; })}
-      <button className="btn ghost" onClick={() => mark({ incomes: [...data.incomes, { id: uid(), name: 'Salário', amount: 0 }] })}>+ Adicionar renda</button>
+        {i.variable && <VarIncome income={i} month={data.month} onChange={setI} />}</>}</div>; })}
+      <div className="add-row"><button className="btn ghost" onClick={() => mark({ incomes: [...data.incomes, { id: uid(), name: 'Salário', amount: 0 }] })}>+ Adicionar renda</button>
+        <button className="btn ghost" onClick={() => mark({ incomes: [...data.incomes, withDaily({ id: uid(), name: 'Diárias', amount: 0, kind: 'diaria', daily: { rate: 0, days: DEFAULT_DAYS, log: {} } })] })}>+ Recebo por dia</button></div>
     </div>
     <ReceivablesCard data={data} upd={upd} />
     <ForecastCard data={data} upd={upd} />
