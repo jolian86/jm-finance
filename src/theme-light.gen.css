@@ -74,3 +74,7 @@ html[data-theme="light"] .rate-calc.warn{color:#a16207}
 html[data-theme="light"] .fhint.warn{color:#a16207}
 html[data-theme="light"] .asset-goal{color:#15803d}
 html[data-theme="light"] .kind-adj{background:rgba(161,84,8,.04)}
+html[data-theme="light"] .dc-day.on{color:#3d2e1c}
+html[data-theme="light"] .st-abaixo{color:#a16207!important}
+html[data-theme="light"] .st-acima,html[data-theme="light"] .st-ok{color:#15803d!important}
+html[data-theme="light"] .dt-done span{color:#15803d}

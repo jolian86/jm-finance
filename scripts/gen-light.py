@@ -7,7 +7,7 @@ TEXT = '#3d2e1c'
 MAP = [
   (r'#(ddd0bb|e9dfcd|e8dcc4|d9ccb6|d8cbb5|f5ede0|ffe7a8)\b', TEXT),
   (r'#(86efac|bbf7d0|dcfce7)\b', '#15803d'),
-  (r'#fcd34d\b', '#a16207'),
+  (r'#(fcd34d|fbbf24)\b', '#a16207'),
   (r'#(fca5a5|fecaca|fde2e2)\b', '#b91c1c'),
   (r'#(15110c|120f0b|0f0b08|0e0b08|0d0b09)\b', '#fffaf2'),
   (r'#(1b140d|17110b)\b', '#fffdf8'),
