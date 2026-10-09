@@ -3,7 +3,7 @@ html[data-theme="light"]{
   --bg:#faf6ee;--bg2:#f3ecdf;--charcoal:#eadfcb;
   --g1:#8a4b06;--g2:#9a5a07;--g3:#c17925;--g4:#a15408;--g5:#6e3607;
   --gold:linear-gradient(135deg,#fdef89 0%,#f7b731 38%,#c17925 75%,#a15408 100%);
-  --text:#2a1f12;--muted:#6b5a42;--faint:#8a7a63;
+  --text:#2a1f12;--muted:#6b5a42;--faint:#76664f;
   --line:rgba(161,84,8,.30);--line2:rgba(161,84,8,.15);
   --card:linear-gradient(160deg,rgba(255,253,248,.96),rgba(250,244,233,.96));
   --ok:#15803d;--fine:#4d7c0f;--warn:#b45309;--bad:#dc2626;
@@ -49,3 +49,10 @@ html[data-theme="light"] [style*="color: rgb(247, 183, 49)"]{color:#9a5a07!impor
 .theme-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:rgba(247,183,49,.06);color:var(--g2);display:grid;place-items:center;cursor:pointer;transition:background .2s;padding:0}
 .theme-btn:hover{background:rgba(247,183,49,.14)}.theme-btn svg{width:21px;height:21px}
 .head-actions{display:flex;align-items:center;gap:8px}
+/* marca: dourado escuro no tema claro (o claro some no creme) */
+html[data-theme="light"] .wordmark .jm,html[data-theme="light"] .wordmark .fin{background:linear-gradient(135deg,#a15408 0%,#8a4b06 55%,#6e3607 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+/* cabeçalho com o botão de tema: cabe em telas estreitas (vale para os dois temas) */
+.wordmark{white-space:nowrap}
+@media (max-width:420px){header .lockup{gap:8px}header .lockup.sm .wordmark{font-size:20px}.head-right{gap:6px}
+  .badge-ex{padding:4px 7px;font-size:9px;letter-spacing:.08em}.theme-btn,.bell{width:36px;height:36px;border-radius:11px}}
+@media (max-width:350px){header .lockup.sm .wordmark .fin{display:none}}
