@@ -7,6 +7,8 @@ import '@fontsource/montserrat/latin-500.css'
 import '@fontsource/montserrat/latin-600.css'
 import '@fontsource/montserrat/latin-700.css'
 import './index.css'
+import './theme-light.gen.css'
+import './theme-light.css'
 import App from './App.tsx'
 import { installViewportSync } from './overlay'
 installViewportSync()

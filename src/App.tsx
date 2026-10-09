@@ -1,3 +1,4 @@
+import { useTheme, ThemeButton } from './theme';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
@@ -43,6 +44,7 @@ export default function App() {
   const [data, setData] = useState<Data>(load);
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(location.search).get('tab') as Tab) || 'inicio');
   useEffect(() => localStorage.setItem(KEY, JSON.stringify(data)), [data]);
+  const { theme, toggle: toggleTheme } = useTheme();
   const upd = (p: Partial<Data>) => setData(d => ({ ...d, ...p, isExample: p.isExample ?? d.isExample }));
   const hasData = data.incomes.length > 0;
   // trocar os dados (exemplo / limpar) mantém aceite dos termos e preferências do aparelho
@@ -74,7 +76,7 @@ export default function App() {
     <AnimatePresence>{!accepted && <Welcome key="welcome" prev={data.settings.terms} hasData={hasData || data.debts.length > 0 || data.goals.length > 0 || data.history.length > 0} onAccept={acceptTerms} />}</AnimatePresence>
     {accepted && <div className="app">
       <header><BrandLockup small />
-        <div className="head-right">{data.isExample && <span className="badge-ex">EXEMPLO</span>}<Bell count={unread} onClick={() => setAlertsOpen(true)} /></div></header>
+        <div className="head-right">{data.isExample && <span className="badge-ex">EXEMPLO</span>}<ThemeButton theme={theme} onToggle={toggleTheme} /><Bell count={unread} onClick={() => setAlertsOpen(true)} /></div></header>
       <main>
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
