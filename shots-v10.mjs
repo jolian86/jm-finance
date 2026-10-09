@@ -8,7 +8,7 @@ const VPS = [[375, 667], [390, 844], [360, 740], [412, 915], [430, 932], [820, 1
 const b = await chromium.launch(); const errs = []; const fails = [];
 for (const [w, h, kind] of VPS) {
   const n = `${w}x${h}`;
-  const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: kind === 'desktop' ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !kind, hasTouch: kind !== 'desktop' });
+  const ctx = await b.newContext({ colorScheme: process.env.SCHEME || 'light', viewport: { width: w, height: h }, deviceScaleFactor: kind === 'desktop' ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !kind, hasTouch: kind !== 'desktop' });
   const p = await ctx.newPage(); p.on('dialog', d => d.accept()); p.on('pageerror', e => errs.push(`${n}: ${e.message}`)); p.on('console', m => m.type() === 'error' && errs.push(`${n}: ${m.text()}`));
   await p.goto(U + '?nosplash'); await p.evaluate(() => { localStorage.clear(); sessionStorage.setItem('jm:nm', '1'); }); await p.reload(); await p.waitForTimeout(600);
   await p.click('.welcome .accept'); await p.locator('.welcome .btn').last().click(); await p.waitForTimeout(600);

@@ -17,7 +17,7 @@ const VPS = only.length ? ALL.filter(v => only.includes(v.n)) : ALL;
 const b = await chromium.launch();
 const errs = []; const fails = []; let checks = 0;
 for (const vp of VPS) {
-  const ctx = await b.newContext({ viewport: { width: vp.w, height: vp.h }, deviceScaleFactor: vp.desktop ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !vp.desktop && !vp.tablet, hasTouch: !vp.desktop, acceptDownloads: true });
+  const ctx = await b.newContext({ colorScheme: process.env.SCHEME || 'light', viewport: { width: vp.w, height: vp.h }, deviceScaleFactor: vp.desktop ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !vp.desktop && !vp.tablet, hasTouch: !vp.desktop, acceptDownloads: true });
   const p = await ctx.newPage();
   p.on('dialog', d => d.accept()); p.on('pageerror', e => errs.push(`${vp.n}: ${e.message}`)); p.on('console', m => m.type() === 'error' && errs.push(`${vp.n}: ${m.text()}`));
   const shot = async (n, force) => { if (SHOTS && (vp.shots || force)) await p.screenshot({ path: `${OUT}/${vp.n}-${n}.png` }); };

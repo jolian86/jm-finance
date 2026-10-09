@@ -12,7 +12,7 @@ const pad = n => String(n).padStart(2, '0');
 for (const [w, h, kind] of VPS) {
   const n = `${w}x${h}`; const shots = SHOT.includes(n);
   for (const phase of ['hoje', 'dia20']) {
-    const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: kind === 'desktop' ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !kind, hasTouch: kind !== 'desktop' });
+    const ctx = await b.newContext({ colorScheme: process.env.SCHEME || 'light', viewport: { width: w, height: h }, deviceScaleFactor: kind === 'desktop' ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !kind, hasTouch: kind !== 'desktop' });
     const p = await ctx.newPage(); p.on('dialog', d => d.accept()); p.on('pageerror', e => errs.push(`${n}: ${e.message}`)); p.on('console', m => m.type() === 'error' && errs.push(`${n}: ${m.text()}`));
     if (phase === 'dia20') await p.clock.setFixedTime(new Date('2026-10-20T15:00:00-03:00'));
     const wait = ms => p.waitForTimeout(ms);

@@ -7,7 +7,7 @@ const b = await chromium.launch(); const errs = []; const fails = []; let checks
 const ok = (c, m) => { checks++; if (!c) fails.push(m); };
 for (const [w, h, kind] of VPS) {
   const n = `${w}x${h}`;
-  const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: kind === 'desktop' ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !kind, hasTouch: kind !== 'desktop' });
+  const ctx = await b.newContext({ colorScheme: process.env.SCHEME || 'light', viewport: { width: w, height: h }, deviceScaleFactor: kind === 'desktop' ? 1 : 2, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', isMobile: !kind, hasTouch: kind !== 'desktop' });
   const p = await ctx.newPage(); p.on('dialog', d => d.accept()); p.on('pageerror', e => errs.push(`${n}: ${e.message}`)); p.on('console', m => m.type() === 'error' && errs.push(`${n}: ${m.text()}`));
   const wait = ms => p.waitForTimeout(ms);
   const DD = () => p.evaluate(() => JSON.parse(localStorage.getItem('jmfinance:data')));
