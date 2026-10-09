@@ -18,7 +18,8 @@ export function useTheme() {
     mq.addEventListener?.('change', on); return () => mq.removeEventListener?.('change', on);
   }, []);
   const toggle = () => setTheme(t => { const n: Theme = t === 'light' ? 'dark' : 'light'; try { localStorage.setItem(KEY, n); } catch { /* sem armazenamento */ } return n; });
-  return { theme, toggle };
+  const set = (n: Theme) => { try { localStorage.setItem(KEY, n); } catch { /* sem armazenamento */ } setTheme(n); };
+  return { theme, toggle, set };
 }
 export function ThemeButton({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
   const light = theme === 'light';

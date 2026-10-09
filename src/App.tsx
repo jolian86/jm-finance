@@ -1,4 +1,5 @@
 import { useTheme, ThemeButton } from './theme';
+import { ThemePicker, ThemeTip, pickerDone } from './ThemePicker';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
@@ -46,7 +47,7 @@ export default function App() {
   const [data, setData] = useState<Data>(load);
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(location.search).get('tab') as Tab) || 'inicio');
   useEffect(() => localStorage.setItem(KEY, JSON.stringify(data)), [data]);
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { theme, toggle: toggleTheme, set: setThemeTo } = useTheme();
   const upd = (p: Partial<Data>) => setData(d => ({ ...d, ...p, isExample: p.isExample ?? d.isExample }));
   const hasData = data.incomes.length > 0;
   // trocar os dados (exemplo / limpar) mantém aceite dos termos e preferências do aparelho
@@ -60,8 +61,9 @@ export default function App() {
   const go = (t: Tab | AlertTab) => { if (t === 'evolucao') { setDiagView('evolucao'); setTab('diagnostico'); } else { if (t === 'diagnostico') setDiagView('hoje'); setTab(t); } window.scrollTo({ top: 0 }); };
   // termos de uso (aceite obrigatório no 1º uso, para usuários antigos e quando a versão muda)
   const accepted = hasAccepted(data.settings.terms);
+  const [pick, setPick] = useState<'' | 'pick' | 'tip'>('');
   const [termsOpen, setTermsOpen] = useState(false);
-  const acceptTerms = () => { setData(d => ({ ...d, settings: { ...d.settings, terms: { version: TERMS_VERSION, acceptedAt: new Date().toISOString() } } })); window.scrollTo({ top: 0 }); };
+  const acceptTerms = () => { if (!data.settings.terms && !pickerDone()) setPick('pick'); setData(d => ({ ...d, settings: { ...d.settings, terms: { version: TERMS_VERSION, acceptedAt: new Date().toISOString() } } })); window.scrollTo({ top: 0 }); };
   const acceptedOn = data.settings.terms ? new Date(data.settings.terms.acceptedAt).toLocaleDateString('pt-BR') : '';
   // alertas
   const alerts = useMemo(() => computeAlerts(data), [data]);
@@ -110,6 +112,7 @@ export default function App() {
         <p className="hint">Vamos guardar uma foto de {ymShort(data.month)}: renda, gastos por categoria, dívidas, patrimônio, reserva, nota e objetivos. Depois:</p>
         <ul className="steps-mini"><li>o app passa para o mês seguinte;</li><li>os gastos reais lançados são zerados (o orçamento planejado continua);</li><li>atualize saldos de dívidas, reserva e bens quando mudarem.</li></ul>
       </Modal>}</AnimatePresence>
+      <AnimatePresence>{pick === 'pick' && <ThemePicker key="tp" theme={theme} onPick={setThemeTo} onDone={() => setPick('tip')} />}{pick === 'tip' && <ThemeTip key="tt" onClose={() => setPick('')} />}</AnimatePresence>
       <AnimatePresence>{termsOpen && <TermsSheet acceptance={data.settings.terms} onClose={() => setTermsOpen(false)} onDeleteAll={async () => { await deleteAllData(); location.replace(location.pathname); }} />}</AnimatePresence>
       <nav>
         {([['inicio', Icon.home, 'Início'], ['dados', Icon.edit, 'Meus dados'], ['diagnostico', Icon.pulse, 'Diagnóstico'], ['plano', Icon.compass, 'Plano'], ['objetivos', Icon.target, 'Objetivos']] as const).map(([k, I, l]) =>
