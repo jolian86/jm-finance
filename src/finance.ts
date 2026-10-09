@@ -201,9 +201,9 @@ const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMont
 export const exampleData = (): Data => { const prevE = uid(), segE = uid(); return {
   isExample: true, month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS },
   reserve: 800,
-  incomes: [{ id: uid(), name: 'Salário', amount: 4200 }, { id: uid(), name: 'Freelas (variável)', amount: varStats([1500, 1300, 1800, 1200, 1600, 1250]).base, variable: true, history: [1500, 1300, 1800, 1200, 1600, 1250] },
+  incomes: [{ id: uid(), name: 'Salário', amount: 3300 }, { id: uid(), name: 'Freelas (variável)', amount: varStats([1500, 1300, 1800, 1200, 1600, 1250]).base, variable: true, history: [1500, 1300, 1800, 1200, 1600, 1250] },
     withDaily({ id: uid(), name: 'Diárias de garçom (fins de semana)', amount: 0, kind: 'diaria', daily: { rate: 120, days: 6, log: exampleDailyLog(120) } })],
-  receivables: exampleReceivables(4200),
+  receivables: exampleReceivables(3300),
   expenses: [
     { id: uid(), name: 'Aluguel', amount: 1500, category: 'moradia', kind: 'fixa' },
     { id: uid(), name: 'Luz/água/internet', amount: 350, category: 'moradia', kind: 'fixa' },
