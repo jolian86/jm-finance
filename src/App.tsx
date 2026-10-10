@@ -1,6 +1,6 @@
 import { useTheme, ThemeButton } from './theme';
 import { ThemePicker, ThemeTip, pickerDone } from './ThemePicker';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
 import Evolucao from './Evolucao';
@@ -9,7 +9,7 @@ import { DebtCard } from './DebtCard';
 import { AssetCard } from './AssetCard';
 import Backup from './Backup';
 import { ReceivablesCard, ForecastCard, VarIncome, ModeToggle } from './Receivables';
-import { isDaily, withDaily, dailyStats, DEFAULT_DAYS } from './finance';
+import { isDaily, withDaily, dailyStats, DEFAULT_DAYS, SPLIT, splitSum, SplitKey } from './finance';
 import { DailyFields, DailyToday } from './Daily';
 import { varStats, fmtAm, STRATEGY, inferKind, withAutoKind, newRetire, amToAa, aaToAm, DEFAULT_REAL_AA, DEFAULT_REAL_AM, Expense } from './finance';
 import { Welcome, TermsSheet, deleteAllData } from './Terms';
@@ -100,7 +100,7 @@ export default function App() {
       </main>
       {!chat && <motion.button className="fab" onClick={() => setChat(true)} aria-label="Consultor JM" whileTap={{ scale: 0.92 }} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: 'spring', stiffness: 260, damping: 18 }}>
         <Icon.chat /><span>Consultor</span></motion.button>}
-      <AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={() => setChat(false)} goGoals={() => { setChat(false); go('objetivos'); }} openSim={s => openSim(s)} />}</AnimatePresence>
+      <AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={() => setChat(false)} goGoals={() => { setChat(false); go('objetivos'); }} openSim={s => openSim(s)} goTab={t => { setChat(false); go(t); }} />}</AnimatePresence>
       <AnimatePresence>{alertsOpen && <AlertsPanel alerts={alerts} dismissed={data.dismissedAlerts}
         onDismiss={id => upd({ dismissedAlerts: [...data.dismissedAlerts, id] })} onRestore={() => upd({ dismissedAlerts: [] })}
         onGo={(t, anchor) => { setAlertsOpen(false); go(t); if (anchor) scrollToId(anchor); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)}
@@ -258,6 +258,26 @@ function Inputs({ data, upd, setData, onCloseMonth, goGoals }: { data: Data; upd
 }
 
 /** Uma linha de gasto. "Fixo ou varia" é decidido pelo app; o ajuste manual fica escondido e é opcional. */
+function CardSplitBox({ e, set }: { e: Expense; set: (p: Partial<Expense>) => void }) {
+  const want = (() => { try { return sessionStorage.getItem('jm:openCard') === e.id; } catch { return false; } })();
+  const [open, setOpen] = useState(want); const [soon, setSoon] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (want) { try { sessionStorage.removeItem('jm:openCard'); } catch { /* ok */ } setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const tot = splitSum(e); const rest = e.amount - tot;
+  return <div className={`card-split ${open ? 'open' : ''}`} ref={ref}>
+    <button type="button" className="adv-toggle" aria-expanded={open} onClick={() => setOpen(o => !o)}><span>O que entra na fatura? (opcional)</span>{!open && <small>{tot ? `${brl(tot)} separados` : 'separe por alto'}</small>}<span className="adv-chev" aria-hidden="true">▾</span></button>
+    {open && <div className="adv-body">
+      <button type="button" className="btn ghost sm photo-bill" onClick={() => setSoon(v => !v)} aria-expanded={soon}>📷 Fotografar fatura (ou enviar PDF) <span className="soon-tag">em breve</span></button>
+      {soon && <p className="soon-note" role="status">Em breve o app vai ler a sua fatura e preencher tudo sozinho — você só confere. Por enquanto, coloque os valores aqui embaixo, por alto mesmo. 😉</p>}
+      <p className="fhint">Coloque, por alto, quanto da fatura vai para cada coisa. Não precisa fechar certinho. Assim o app enxerga para onde o dinheiro vai.</p>
+      <div className="split-grid">{SPLIT.map(x => <label key={x.k}><span>{x.label}</span>
+        <MoneyInput label={`${x.label} na fatura`} value={e.split?.[x.k] || 0} onChange={n => { const sp = { ...e.split, [x.k]: n ?? 0 }; Object.keys(sp).forEach(k => { if (!sp[k as SplitKey]) delete sp[k as SplitKey]; }); set({ split: Object.keys(sp).length ? sp : undefined }); }} /></label>)}</div>
+      <p className={`split-rest ${rest < -0.5 ? 'over' : ''}`}>{rest < -0.5 ? `As partes somam ${brl(tot)}, mais que a fatura (${brl(e.amount)}). Quer usar ${brl(tot)} como valor da fatura? ` : rest > 0.5 ? `Separados: ${brl(tot)} · sem separar: ${brl(rest)}` : 'Tudo separado. 👍'}
+        {rest < -0.5 && <button className="link" onClick={() => set({ amount: Math.round(tot * 100) / 100 })}>Usar {brl(tot)}</button>}</p>
+      {(e.split?.parcelas || 0) > 0 && <p className="fhint">Parcelas de compras já estão comprometidas — evite parcelar coisas novas até terminarem.</p>}
+    </div>}
+  </div>;
+}
 function ExpRow({ e: i, set: setE, remove, day }: { e: Expense; set: (p: Partial<Expense>) => void; remove: () => void; day: (v: string) => number | undefined }) {
   const [adj, setAdj] = useState(false);
   const auto = inferKind(i.category, i.name);
@@ -278,6 +298,7 @@ function ExpRow({ e: i, set: setE, remove, day }: { e: Expense; set: (p: Partial
       <label className="chk-line"><input type="radio" name={`k-${i.id}`} checked={i.kind === 'variavel'} onChange={() => setE({ kind: 'variavel', kindSet: auto !== 'variavel' })} />O valor muda de um mês para outro</label>
       {i.kindSet && <button className="link" onClick={() => setE({ kindSet: false })}>voltar ao automático</button>}
     </div>}
+    {i.category === 'cartao' && <CardSplitBox e={i} set={setE} />}
   </div>;
 }
 

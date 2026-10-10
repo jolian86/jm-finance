@@ -2,7 +2,7 @@
 import { Data, SCHEMA_VERSION, migrate } from './finance';
 import type { ChatMessage } from './ai/types';
 
-export const APP_VERSION = '1.11.0';
+export const APP_VERSION = '1.12.0';
 export const FORMAT = 'jm-finance-backup';
 const CHAT_KEY = 'jmfinance:chat';
 const MAX_BYTES = 5 * 1024 * 1024;
