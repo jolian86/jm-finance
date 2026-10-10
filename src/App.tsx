@@ -1,6 +1,7 @@
 import { useTheme, ThemeButton } from './theme';
 import { FlowCard } from './FlowCard';
 import { FaturaReader } from './FaturaReader';
+import { BuyWays } from './Consorcio';
 import { FATURA_URL } from './fatura';
 import { MovedBanner } from './MovedBanner';
 import { exportBackup } from './backup';
@@ -446,6 +447,7 @@ function Goals({ data, upd }: { data: Data; upd: (p: Partial<Data>) => void }) {
           <li>Cortar mais {brl(alt.cut)}/mês em gastos ou aumentar a renda nesse valor.</li>
         </ul>}
       </div>
+      {g.type !== 'aposentadoria' && g.type !== 'reserva' && (g.type === 'compra' || /carro|moto|casa|apart|apto|im[oó]vel|terreno|ve[ií]culo/i.test(g.name)) && <BuyWays name={g.name} price={Math.max(0, target - g.saved)} />}
       <Disc />
     </div>)}
     <button className="btn full" onClick={add}>+ Adicionar objetivo</button>
