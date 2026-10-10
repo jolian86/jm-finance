@@ -1,1 +1,5 @@
-Cloudflare Pages (https://jm-finance.pages.dev/) — build index-CDVDxUWA.js
+Cloudflare (preview sem IA = modo simulação, mesmo build da produção): https://sim.jm-finance.pages.dev/
+v15: checagens: 378 | falhas: nenhuma erros: nenhum 
+v14: checagens: 196 | falhas: nenhuma erros: nenhum 
+v13: checagens: 686 | falhas: nenhuma erros: nenhum 
+DONE

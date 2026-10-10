@@ -575,3 +575,4 @@ body.chat-open:not(.kb-open) .chat-input{padding-bottom:10px}
 .buy-ways{margin-top:10px}.buy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:8px 0}
 .buy-col{border:1px solid var(--line2);border-radius:12px;padding:10px;font-size:.86rem}.buy-col>b{display:block;margin-bottom:4px;color:var(--gold,#e0b25a)}.buy-col p{margin:4px 0}
 .buy-note{opacity:.75;font-size:.8rem}.bad-t{color:#ff9b8a}.buy-adv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.buy-adv label{display:flex;flex-direction:column;gap:4px;font-size:.82rem}
+body.chat-open nav{background:var(--bg)}
