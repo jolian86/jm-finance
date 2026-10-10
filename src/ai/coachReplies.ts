@@ -3,6 +3,7 @@ import type { ChatAction, ChatMessage, ChatReply, FinancialSummary as S } from '
 import { KINDS, guessCategory } from '../coach';
 
 export const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/(.)\1{2,}/g, '$1').replace(/[^a-z0-9$%,./\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+const cap = (x: string) => x ? x[0].toUpperCase() + x.slice(1) : x;
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const lev = (a: string, b: string) => { const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9; const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
   for (let j = 1; j <= n; j++) d[0][j] = j; for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[m][n]; };
@@ -59,6 +60,7 @@ export function pathReply(s: S, h: ChatMessage[], intro = '', t = ''): ChatReply
   }
   const top = c.expenseNotes[0];
   if (top) l.push(`\n${tipFor(top)}`);
+  if (s.cashflow?.billsBeforeMoney.length) { const b = s.cashflow.billsBeforeMoney[0]; l.push(`\nE um ajuste fácil: “${b.name}” vence dia ${b.day}, quando o dinheiro já acabou. Peça para mudar para o dia ${b.suggestDay}, logo depois que você recebe.`); }
   const [oq, oa] = othersQ(s); let txt = l.join('\n') + oq;
   if (asksName(s, h)) txt += '\n\nAh, e como quer que eu te chame? É só escrever “me chama de …”.';
   const extra: ChatAction[] = P.steps.some(x => x.kind === 'divida_cara') ? [{ type: 'open_sim', label: 'Simular: juntar dívidas em uma só, mais barata', sim: 'consolidar' }] : [];
@@ -74,7 +76,7 @@ export function expenseReply(s: S, t: string, _h: ChatMessage[] = []): ChatReply
     const n = e && c.expenseNotes.find(x => x.id === e.id);
     const head = e ? (n ? `${hi}você gasta ${brl(e.amount)} em ${e.name}. Para a sua renda, perto de ${brl(n.typical)} já seria bom — dá para sobrar uns ${brl(n.save)} por mês.` : `${hi}${e.name} está em ${brl(e.amount)}, dentro do esperado para a sua renda. Ainda assim, dá para economizar um pouco:`)
       : `${hi}não achei ${focus.label} nos seus gastos. Se tiver, cadastre em “Meus dados › Gastos”. Algumas ideias para economizar:`;
-    return { content: `${head}\n${focus.tips.map(x => '• ' + x).join('\n')}`, actions: [{ type: 'go', label: 'Ajustar meus gastos', tab: 'dados' }] };
+    return { content: `${cap(head)}\n${focus.tips.map(x => '• ' + x).join('\n')}`, actions: [{ type: 'go', label: 'Ajustar meus gastos', tab: 'dados' }] };
   }
   const l: string[] = [];
   if (c.expenseNotes.length) {
@@ -84,7 +86,7 @@ export function expenseReply(s: S, t: string, _h: ChatMessage[] = []): ChatReply
     l.push(`\nSe fizer tudo, sobram ~${brl(tot)} por mês${s.balance < 0 ? ` — e hoje faltam ${brl(-s.balance)}` : ''}.`);
   } else {
     const big = [...c.expenses].sort((a, b) => b.amount - a.amount).slice(0, 3);
-    l.push(`${hi}seus gastos estão dentro do esperado para a sua renda — boa! Os maiores são ${big.map(b => `${b.name} (${brl(b.amount)})`).join(', ')}.${s.balance < 0 ? ' Como o mês ainda não fecha, o caminho passa por dívidas mais baratas ou renda extra.' : ''}`);
+    l.push(`${cap(hi + 'seus gastos estão')} dentro do esperado para a sua renda — boa! Os maiores são ${big.map(b => `${b.name} (${brl(b.amount)})`).join(', ')}.${s.balance < 0 ? ' Como o mês ainda não fecha, o caminho passa por dívidas mais baratas ou renda extra.' : ''}`);
   }
   const [oq, oa] = othersQ(s);
   return { content: l.join('\n') + oq, actions: [...oa, { type: 'go', label: 'Ajustar meus gastos', tab: 'dados' }, { type: 'open_sim', label: 'Simular: cortar um gasto', sim: 'cortar' }] };
@@ -113,4 +115,17 @@ export function greet(s: S): ChatReply {
   if (!s.hasData) return { content: `${hi} Para eu te ajudar de verdade, preciso dos seus números: cadastre renda e gastos em “Meus dados” (leva uns 3 minutos).` };
   return { content: `${hi} Sua nota hoje é ${s.score} (${s.level}). Posso te mostrar o caminho até 80, olhar seus gastos um por um, ou responder sobre dívidas, compras e objetivos. Por onde quer começar?`,
     actions: [{ type: 'go', label: 'Ver meu plano', tab: 'plano' }] };
+}
+
+export const isFlow = (t: string) => /\b(quando|que dia|dia)\b.*\b(cai|recebo|pago|vence|vencimento|salario)|vencimento|dias? de aperto|aperto|fim do mes|falta dinheiro (no|antes)|antes do salario|dinheiro acaba|acaba o dinheiro|mes dia a dia|fluxo/.test(t);
+export function flowReply(s: S): ChatReply {
+  const f = s.cashflow; const hi = s.userName ? `${s.userName}, ` : '';
+  if (!f) return { content: `${cap(hi + 'para')} eu ver se alguma conta vence antes do dinheiro cair, preciso saber o dia em que você recebe. Em “Meus dados › Rendas mensais”, preencha “Dia que recebe” (é opcional). Recebe em duas vezes, tipo adiantamento e salário? Lance como duas rendas, cada uma com o seu dia.`, actions: [{ type: 'go', label: 'Informar o dia que recebo', tab: 'dados' }] };
+  const l = [`${cap(hi + 'olhei')} o seu mês dia a dia, a partir do dia ${f.startDay} (${f.paydays.map(p => `${p.name}: ${brl(p.amount)} no dia ${p.day}`).join('; ')}).`];
+  if (f.deficit) l.push(`\nAntes de tudo: o mês, no total, não fecha — faltam ${brl(f.deficit)}. Isso nenhuma troca de data resolve; o caminho é ajustar gastos e dívidas (pergunte “como melhorar minha nota”). Olhando só as datas:`);
+  if (!f.tightDays) l.push(`\n${f.deficit ? 'As datas estão bem encaixadas' : 'Boa notícia: nenhum dia de aperto'} — o dinheiro chega antes das contas. 👍`);
+  else l.push(`\nDias de aperto: ${f.tightDays}. No pior dia (${f.worstDay}) faltam uns ${brl(-f.worstBalance)}.`);
+  if (f.billsBeforeMoney.length) { l.push('\nContas que vencem quando o dinheiro já acabou:'); f.billsBeforeMoney.slice(0, 4).forEach(b => l.push(`• ${b.name} (${brl(b.amount)}), dia ${b.day} → peça para mudar para o dia ${b.suggestDay}, logo depois que você recebe. Costuma ser grátis.`)); }
+  if (f.tightDays) l.push('\nEnquanto isso: separe o valor dessas contas assim que o dinheiro cair, e deixe as compras do mês para depois do pagamento.');
+  return { content: l.join('\n'), actions: [{ type: 'go', label: 'Ver o mês dia a dia', tab: 'diagnostico' }] };
 }

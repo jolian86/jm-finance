@@ -540,3 +540,13 @@ html[data-theme="light"] .split-rest.over{color:#a16207}
 .photo-bill{display:inline-flex;align-items:center;gap:8px;margin:6px 0 4px;max-width:100%;flex-wrap:wrap}
 .soon-tag{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:linear-gradient(135deg,#ffd76a,#c27c0e);color:#1a1205}
 .soon-note{font-size:14px;margin:4px 0 8px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(247,183,49,.08)}
+.pay-line{display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-size:14px;color:var(--muted)}
+.pay-line small{color:var(--faint);font-size:12px}
+.pay-hint2{font-size:13px;margin-top:8px}
+.flow-card .flow-warn{margin:6px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(251,191,36,.35);background:rgba(251,191,36,.07);font-size:14px}
+.flow-card .flow-ok{color:#86efac}
+html[data-theme="light"] .flow-card .flow-ok{color:#15803d}
+.flow-list{list-style:none;padding:0;margin:8px 0 0;font-size:14px;display:grid;gap:4px}
+.flow-list li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:4px 0}
+.flow-list .in{color:#86efac}.flow-list .neg{color:#fca5a5}
+html[data-theme="light"] .flow-list .in{color:#15803d}html[data-theme="light"] .flow-list .neg{color:#b91c1c}

@@ -1,3 +1,4 @@
+import { isFlow, flowReply } from './coachReplies';
 import { norm as nrm, isPath, isExpense, askedOthers, NAME_RX, pathReply, expenseReply, othersAnswer, greet } from './coachReplies';
 import type { ChatAction, ChatMessage, ChatProvider, ChatReply, FinancialSummary as S } from './types';
 
@@ -235,6 +236,7 @@ function route(text: string, s: S, h: ChatMessage[]): string | ChatReply {
   if (/qual divida|pagar primeiro|quitar|avalanche|bola de neve|menores primeiro|economizar juros|renegoci/.test(t)) return whichDebt(s);
   if (/invest|aplicar|render|tesouro|acoes|cdb/.test(t)) return invest(s);
   if (/meus objetivos|minhas metas|objetivos cabem|aposent/.test(t)) return goals(s);
+  if (isFlow(t2)) return flowReply(s);
   if (isPath(t2) || /vermelho|sair d|endivid|apertad|nao sobra|situacao|diagnostic/.test(t)) return pathReply(s, h, '', t2);
   if (isExpense(t2)) return expenseReply(s, t2, h);
   if (/viag|ferias|juntar|guardar para|guardar pra|quero (ter|fazer|comprar)|objetivo|meta|reserva de emergencia/.test(t)) return newGoal(s, text);

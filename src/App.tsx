@@ -1,4 +1,5 @@
 import { useTheme, ThemeButton } from './theme';
+import { FlowCard } from './FlowCard';
 import { ThemePicker, ThemeTip, pickerDone } from './ThemePicker';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
@@ -202,9 +203,11 @@ function Inputs({ data, upd, setData, onCloseMonth, goGoals }: { data: Data; upd
         <label className="chk-line var-toggle"><input type="checkbox" checked={dly} onChange={e => setI(e.target.checked
           ? withDaily({ ...i, kind: 'diaria', variable: false, daily: i.daily ? { ...i.daily, rate: i.daily.rate || Math.round(i.amount / DEFAULT_DAYS) } : { rate: Math.round(i.amount / DEFAULT_DAYS), days: DEFAULT_DAYS, log: {} } })
           : { ...i, kind: 'mensal', amount: Math.round(dailyStats(i).expected) })} />Recebo por dia (diária)</label>
+        {!dly && <div className="pay-line"><span>Dia que recebe</span><DayInput value={i.payDay} label={`Dia que recebe ${i.name || 'esta renda'} (opcional)`} onChange={v => setI({ ...i, payDay: day(v) })} /><small>opcional</small></div>}
         {dly ? <DailyFields income={i} onChange={setI} /> : <>
         <label className="chk-line var-toggle"><input type="checkbox" checked={!!i.variable} onChange={e => setI(e.target.checked ? { ...i, variable: true, history: i.history?.length ? i.history : [i.amount, i.amount, i.amount] } : { ...i, variable: false })} />Renda variável (comissão, plantões, freelas…)</label>
         {i.variable && <VarIncome income={i} month={data.month} onChange={setI} />}</>}</div>; })}
+      <p className="hint pay-hint2">Recebe em duas vezes (adiantamento + salário)? Lance como duas rendas, cada uma com o seu valor e o dia que cai. Com o dia, o app mostra os dias de aperto do mês.</p>
       <div className="add-row"><button className="btn ghost" onClick={() => mark({ incomes: [...data.incomes, { id: uid(), name: 'Salário', amount: 0 }] })}>+ Adicionar renda</button>
         <button className="btn ghost" onClick={() => mark({ incomes: [...data.incomes, withDaily({ id: uid(), name: 'Diárias', amount: 0, kind: 'diaria', daily: { rate: 0, days: DEFAULT_DAYS, log: {} } })] })}>+ Recebo por dia</button></div>
     </div>
@@ -317,6 +320,7 @@ function Diagnosis({ data }: { data: Data }) {
       <Stat label="Juros pagos por mês" n={r.monthlyInterest} f={brl0} bad={r.monthlyInterest > 0} />
       <Stat label="Reserva de emergência" n={r.reserveMonths} f={months} bad={r.reserveMonths < 1} />
     </div>
+    <FlowCard data={data} />
     <div className="card"><h3>O que você tem</h3>
       <div className="grid3">
         <Stat label="Tudo o que você tem" sub="bens + reserva" n={r.totalAssets + r.reserve} f={brl0} />

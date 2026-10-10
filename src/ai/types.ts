@@ -15,6 +15,8 @@ export type FinancialSummary = {
   hasData: boolean;
   /** como o usuário quer ser chamado (opcional) */
   userName?: string;
+  /** v15: o mês dia a dia (só se alguma renda tem dia que recebe) */
+  cashflow?: { startDay: number; deficit: number; paydays: { name: string; day: number; amount: number }[]; tightDays: string; worstDay: number; worstBalance: number; billsBeforeMoney: { name: string; day: number; amount: number; suggestDay: number }[] };
   /** v15: o que puxa a nota para baixo, caminho até 80 e análise gasto a gasto */
   coach: { drivers: { pts: number; text: string }[]; path: { start: number; end: number; reached: boolean; steps: { kind: string; text: string; from: number; to: number; expenseId?: string }[] };
     expenseNotes: { id: string; name: string; amount: number; typical: number; save: number; label: string; tips: string[] }[]; others: { id: string; name: string; amount: number; sharePct: number; kind: 'outros' | 'cartao'; split: boolean; parcelas: number }[]; hasRevolving: boolean; cardParcelas: number;
