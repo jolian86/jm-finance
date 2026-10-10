@@ -7,11 +7,11 @@ import mark from './assets/jm-mark-96.webp';
 import { useOverlayLock } from './overlay';
 
 const KEY = 'jmfinance:chat';
-const CHIPS = ['Como usar minha PLR?', 'Como sair do vermelho?', 'Qual dívida pagar primeiro?', 'Quero fazer uma viagem de R$ 6 mil', 'Posso financiar um carro de R$ 40 mil?', 'Quanto devo guardar por mês?', 'Vale a pena investir agora?'];
+const CHIPS = ['Como chegar a uma nota saudável?', 'Onde estou gastando muito?', 'Como sair do vermelho?', 'Como usar minha PLR?', 'Qual dívida pagar primeiro?', 'Quero fazer uma viagem de R$ 6 mil', 'Posso financiar um carro de R$ 40 mil?', 'Quanto devo guardar por mês?', 'Vale a pena investir agora?'];
 const loadChat = (): ChatMessage[] => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 const bubble = { initial: { opacity: 0, y: 10, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { duration: 0.25 } };
 
-export default function Chat({ data, upd, onClose, goGoals, openSim }: { data: Data; upd: (p: Partial<Data>) => void; onClose: () => void; goGoals: () => void; openSim: (s: SimLink) => void }) {
+export default function Chat({ data, upd, onClose, goGoals, openSim, goTab }: { data: Data; upd: (p: Partial<Data>) => void; onClose: () => void; goGoals: () => void; openSim: (s: SimLink) => void; goTab: (t: 'dados' | 'plano' | 'diagnostico' | 'objetivos') => void }) {
   useOverlayLock();
   const provider = useMemo(getProvider, []);
   const [msgs, setMsgs] = useState<ChatMessage[]>(loadChat);
@@ -24,14 +24,27 @@ export default function Chat({ data, upd, onClose, goGoals, openSim }: { data: D
     q = q.trim(); if (!q || typing) return;
     const history = [...msgs, { id: uid(), role: 'user' as const, content: q, at: Date.now() }];
     setMsgs(history); setText(''); setTyping(true);
-    let reply: { content: string; actions?: ChatAction[] };
+    let reply: { content: string; actions?: ChatAction[]; setName?: string };
     try { reply = await provider.sendMessage(history, buildSummary(data)); }
     catch { reply = { content: 'Não consegui responder agora. Tente novamente em instantes.' }; }
+    if (reply.setName) upd({ settings: { ...data.settings, name: reply.setName } });
     setMsgs(m => [...m, { id: uid(), role: 'assistant', content: reply.content, actions: reply.actions, at: Date.now() }]); setTyping(false);
   }
 
   function runAction(msgId: string, a: ChatAction) {
     if (a.type === 'open_sim') { openSim(a.sim); return; }
+    if (a.type === 'go') { goTab(a.tab); return; }
+    if (a.type === 'card') {
+      if (a.toCard) upd({ isExample: false, expenses: data.expenses.map(x => x.id === a.expenseId ? { ...x, category: 'cartao' as const, kind: x.kindSet ? x.kind : 'variavel' as const } : x) });
+      try { sessionStorage.setItem('jm:openCard', a.expenseId); } catch { /* ok */ }
+      goTab('dados'); return;
+    }
+    if (a.type === 'recat') {
+      const e = data.expenses.find(x => x.id === a.expenseId); if (!e) return;
+      upd({ isExample: false, expenses: data.expenses.map(x => x.id === a.expenseId ? { ...x, category: a.category as typeof x.category } : x) });
+      setMsgs(m => [...m.map(x => x.id === msgId ? { ...x, done: true } : x), { id: uid(), role: 'assistant', content: `Pronto! “${e.name}” agora está em ${a.label.split(' para ').pop()}. O diagnóstico já foi atualizado.`, at: Date.now() }]);
+      return;
+    }
     if (a.type === 'create_goal') {
       upd({ isExample: false, goals: [...data.goals, { id: uid(), name: a.goal.name, type: a.goal.type, target: a.goal.target, date: a.goal.date, saved: 0, priority: 'media' }] });
       setMsgs(m => [...m.map(x => x.id === msgId ? { ...x, done: true } : x),
@@ -51,8 +64,8 @@ export default function Chat({ data, upd, onClose, goGoals, openSim }: { data: D
         {provider.simulated && <p className="sim-note">Modo simulação: respostas automáticas baseadas em regras e nos seus dados. A IA real ainda não está conectada.</p>}
         <p className="jm-disc">{DISCLAIMER}</p></div>
       {msgs.map(m => <motion.div key={m.id} {...bubble} className={`msg ${m.role === 'user' ? 'me' : 'bot'}`}><p>{m.content}</p>
-        {m.actions && !m.done && <div className="msg-actions">{m.actions.map((a, i) => <button key={i} className={`btn sm ${a.type === 'open_sim' ? 'ghost' : ''}`} onClick={() => runAction(m.id, a)}>{a.label}{a.type === 'open_sim' ? ' →' : ''}</button>)}</div>}
-        {m.done && <button className="link" onClick={goGoals}>Ver na aba Objetivos →</button>}
+        {m.actions && !m.done && <div className="msg-actions">{m.actions.map((a, i) => <button key={i} className={`btn sm ${a.type === 'open_sim' || a.type === 'go' ? 'ghost' : ''}`} onClick={() => runAction(m.id, a)}>{a.label}{a.type === 'open_sim' ? ' →' : ''}</button>)}</div>}
+        {m.done && m.actions?.some(a => a.type === 'create_goal') && <button className="link" onClick={goGoals}>Ver na aba Objetivos →</button>}
         {m.role === 'assistant' && <p className="jm-disc">{DISCLAIMER}</p>}</motion.div>)}
       {typing && <motion.div {...bubble} className="msg bot typing" aria-label="Consultor digitando"><span /><span /><span /></motion.div>}
       <div ref={end} />

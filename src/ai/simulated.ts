@@ -1,3 +1,4 @@
+import { norm as nrm, isPath, isExpense, askedOthers, NAME_RX, pathReply, expenseReply, othersAnswer, greet } from './coachReplies';
 import type { ChatAction, ChatMessage, ChatProvider, ChatReply, FinancialSummary as S } from './types';
 
 const pm = (n: number) => `${n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% ao mês`;
@@ -125,15 +126,6 @@ function howMuchSave(s: S) {
   return l.join('\n') + END;
 }
 
-function outOfRed(s: S) {
-  const l = [`Sua nota é ${s.score}/100 (${s.level}). Gastos e parcelas levam ${s.commitmentPct.toFixed(0)}% da sua renda e ${s.balance < 0 ? `faltam ${brl(-s.balance)}` : `sobram ${brl(s.balance)}`} por mês.`];
-  if (s.suggestedCuts.length) l.push(`\nCortes que mais ajudam: ${s.suggestedCuts.slice(0, 3).map(c => `${c.name} (${brl(c.current)} → ${brl(c.suggested)})`).join('; ')}.`);
-  l.push('\nO caminho sugerido no seu plano:'); s.planSteps.slice(0, 5).forEach((t, i) => l.push(`${i + 1}. ${t}`));
-  l.push('\nAlternativas para acelerar:\n• Aumentar renda (freelas, vender o que não usa). ✅ Resolve mais rápido. ❌ Exige tempo/energia.\n• Renegociar dívidas. ✅ Reduz parcelas. ⚠️ Pode alongar o prazo.');
-  if (s.debtToIncomePct > 50) l.push('\n⚠️ Suas parcelas passam de 50% da renda — vale procurar ajuda profissional (Procon, Defensoria Pública ou o programa do seu banco para quem tem dívidas demais).');
-  return l.join('\n') + END;
-}
-
 function invest(s: S) {
   const exp = s.debts.filter(d => d.expensive);
   const l: string[] = [];
@@ -172,8 +164,8 @@ function goals(s: S) {
 
 const HELP = 'Sou o Consultor JM (modo simulação). Posso analisar com seus números:\n• "Posso comprar/financiar algo de R$ X?"\n• "Qual dívida pagar primeiro?"\n• "Quanto devo guardar por mês?"\n• "Como sair do vermelho?"\n• "Vale a pena investir agora?"\n• "Devo vender meu carro para quitar dívidas?"\n• "Quero fazer uma viagem de R$ 6 mil" (calculo prazo e crio o objetivo)\n• "Meus objetivos cabem no orçamento?"';
 
-export function simulatedReply(text: string, s: S): ChatReply {
-  const r = route(text, s);
+export function simulatedReply(text: string, s: S, h: ChatMessage[] = []): ChatReply {
+  const r = route(text, s, h);
   const reply: ChatReply = typeof r === 'string' ? { content: r } : r;
   // liga a resposta ao simulador correspondente, quando fizer sentido
   const t = norm(text); const add = (a: ChatAction) => { reply.actions = [...(reply.actions ?? []), a]; };
@@ -222,10 +214,15 @@ function daily(s: S) {
   l.push('\nDica: toque em “Trabalhei hoje” no Início nos dias em que trabalhar. Com isso o app aprende o seu ritmo de verdade. É opcional.');
   return l.join('\n') + END;
 }
-function route(text: string, s: S): string | ChatReply {
-  const t = norm(text);
-  if (/^(oi|ola|bom dia|boa tarde|boa noite|ajuda|help)\b/.test(t) && t.length < 25) return HELP;
+function route(text: string, s: S, h: ChatMessage[]): string | ChatReply {
+  const t = norm(text); const t2 = nrm(text);
+  const nm = text.match(NAME_RX);
+  if (nm) { const name = nm[1][0].toUpperCase() + nm[1].slice(1).toLowerCase(); const r = s.hasData ? pathReply({ ...s, userName: name }, h, `Combinado, ${name}! Vou te chamar assim. 😊 Já olhei seus números:\n`) : { content: `Combinado, ${name}! Vou te chamar assim. 😊 Cadastre renda e gastos em “Meus dados” que eu te mostro o caminho até uma nota saudável.` };
+    return { ...r, setName: name }; }
+  if (/^(oi+|ola|opa|eai|e ai|bom dia|boa tarde|boa noite|hey|hello)\b/.test(t2) && t2.length < 30) return greet(s);
+  if (/^(ajuda|help|menu|o que voce faz|o que vc faz)/.test(t2)) return HELP;
   if (!s.hasData) return noData();
+  if (askedOthers(h) && t2.length < 160 && !isPath(t2) && !/\?/.test(text)) return othersAnswer(s, text);
   if (/diaria|por dia|trabalhei hoje|bico|dias trabalh/.test(t)) return daily(s);
   if (/\bplr\b|\bppr\b|13\s*(º|o\b)|decimo|restituic|honorari|recebiv|receita(s)? futura|\bbonus\b|safra|repasse|\bexito\b|sucumb|\bcomiss/.test(t) || (/ferias/.test(t) && /receb|terco|1\/3|dinheiro/.test(t))) return futureIncome(s, t);
   if (/vender|patrimonio|bens?\b|imovel|usar (meu|minha)/.test(t)) return assets(s);
@@ -238,10 +235,12 @@ function route(text: string, s: S): string | ChatReply {
   if (/qual divida|pagar primeiro|quitar|avalanche|bola de neve|menores primeiro|economizar juros|renegoci/.test(t)) return whichDebt(s);
   if (/invest|aplicar|render|tesouro|acoes|cdb/.test(t)) return invest(s);
   if (/meus objetivos|minhas metas|objetivos cabem|aposent/.test(t)) return goals(s);
+  if (isPath(t2) || /vermelho|sair d|endivid|apertad|nao sobra|situacao|diagnostic/.test(t)) return pathReply(s, h, '', t2);
+  if (isExpense(t2)) return expenseReply(s, t2, h);
   if (/viag|ferias|juntar|guardar para|guardar pra|quero (ter|fazer|comprar)|objetivo|meta|reserva de emergencia/.test(t)) return newGoal(s, text);
   if (/guardar|poupar|economizar|reserva|quanto devo/.test(t)) return howMuchSave(s);
-  if (/vermelho|sair d|endivid|apertad|nao sobra|divida|situacao|diagnostic/.test(t)) return outOfRed(s);
-  return 'Não tenho certeza se entendi. ' + HELP;
+  if (/divida/.test(t)) return whichDebt(s);
+  return pathReply(s, h, 'Não entendi bem a pergunta, mas olhei seus números e separei o que mais ajuda agora. (Você também pode perguntar sobre dívidas, compras, objetivos ou um gasto específico, como “minha conta de luz”.)\n');
 }
 
 export const simulatedProvider: ChatProvider = {
@@ -249,6 +248,6 @@ export const simulatedProvider: ChatProvider = {
   async sendMessage(history: ChatMessage[], summary: S) {
     const last = [...history].reverse().find(m => m.role === 'user');
     await new Promise(r => setTimeout(r, 700 + Math.random() * 600));
-    return simulatedReply(last?.content ?? '', summary);
+    return simulatedReply(last?.content ?? '', summary, history.slice(0, -1));
   },
 };

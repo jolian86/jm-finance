@@ -1,6 +1,7 @@
 import { Data, CATEGORIES, DEBT_TYPES, ASSET_TYPES, GOAL_TYPES, diagnose, actionPlan, order, evaluateGoals, varStats, isDaily, dailyStats, STATUS_TXT } from '../finance';
 import { RECV_TYPES, CERT, fmtOccDate, lumpSentence, isOpen, allOccurrences } from '../recv';
 import type { FinancialSummary } from './types';
+import { pathTo, reviewExpenses, drivers } from '../coach';
 
 export function buildSummary(d: Data): FinancialSummary {
   const r = diagnose(d); const p = actionPlan(d); const g = evaluateGoals(d);
@@ -8,6 +9,9 @@ export function buildSummary(d: Data): FinancialSummary {
   void CATEGORIES; void RECV_TYPES;
   return {
     hasData: d.incomes.length > 0,
+    userName: d.settings.name || undefined,
+    coach: (() => { const rv = reviewExpenses(d, r.income); return { drivers: drivers(d), path: pathTo(d), expenseNotes: rv.notes, others: rv.others, hasRevolving: d.debts.some(x => x.type === 'cartao_rotativo'), cardParcelas: d.expenses.reduce((a, e) => a + (e.category === 'cartao' ? Number(e.split?.parcelas) || 0 : 0), 0),
+      expenses: d.expenses.map(e => ({ id: e.id, name: e.name, amount: e.amount, category: CATEGORIES[e.category]?.label ?? e.category })), incomeKinds: { variable: d.incomes.some(i => i.variable), daily: d.incomes.some(isDaily) } }; })(),
     income: r.income, expenses: r.expenses, minPayments: r.minPayments, balance: r.balance,
     commitmentPct: r.commitment * 100, debtToIncomePct: r.dti * 100, monthlyInterest: r.monthlyInterest,
     score: r.score, level: r.level,
