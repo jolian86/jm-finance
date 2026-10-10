@@ -48,6 +48,20 @@ for (const [w, h, kind] of VPS) for (const scheme of ['light', 'dark']) {
   await p.click('.fab'); await wait(900); a = await ask('onde estou gastando muito?');
   ok(/Delivery e lanches \(no cartão\): R\$ 600/.test(a) && /parcelas de compras/.test(a), `${n}/${scheme} análise da fatura: ${a.slice(0, 200)}`); samples.faturaGastos = a;
   await lastToTop(); await shot('05-gastos-com-fatura');
+  // dia que recebe: adiantamento + salário, conta que vence antes do dinheiro
+  await p.click('.chat-back'); await wait(500); await p.click('nav >> text=Meus dados'); await wait(700);
+  const pl = p.locator('.pay-line input').first(); ok(await pl.isVisible(), `${n}/${scheme} sem campo Dia que recebe`);
+  await pl.fill('7'); await wait(300); ok((await p.evaluate(() => JSON.parse(localStorage.getItem('jmfinance:data')).incomes[0].payDay)) === 7, `${n}/${scheme} dia que recebe não salvou`);
+  await pl.scrollIntoViewIfNeeded(); await ov('rendas'); await shot('06-dia-que-recebe');
+  await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('jmfinance:data')); const sal = d.incomes[0];
+    d.incomes = [{ id: 'ad', name: 'Adiantamento', amount: 1300, payDay: 20 }, { ...sal, amount: 2000, payDay: 5 }, ...d.incomes.slice(1)];
+    d.expenses = d.expenses.map(e => e.name === 'Aluguel' ? { ...e, dueDay: 19 } : e); localStorage.setItem('jmfinance:data', JSON.stringify(d)); localStorage.removeItem('jmfinance:chat'); });
+  await p.reload(); await wait(900); await p.click('nav >> text=Diagnóstico'); await wait(2500);
+  const fc = (await p.locator('.flow-card').innerText()).replace(/\u00a0/g, ' '); ok(/Dias de aperto/.test(fc) && /“Aluguel” \(R\$ 1\.500,00\) vence dia 19/.test(fc) && /dia 21/.test(fc) && /não fecha/.test(fc), `${n}/${scheme} mês dia a dia: ${fc.slice(0, 300)}`);
+  await p.locator('.flow-card').scrollIntoViewIfNeeded(); await ov('mês dia a dia'); await shot('07-mes-dia-a-dia');
+  await p.click('.fab'); await wait(900); a = await ask('tenho dias de aperto no mês?'); ok(/Dias de aperto/.test(a) && /Aluguel/.test(a) && /dia 21/.test(a), `${n}/${scheme} consultor dia de aperto: ${a.slice(0, 200)}`); samples.aperto = a;
+  await lastToTop(); await shot('08-consultor-dias-de-aperto'); await p.click('.chat-back'); await wait(400);
+  await p.click('nav >> text=Plano'); await wait(900); ok(/Ajuste as datas de vencimento/.test(await p.locator('main, .app').first().innerText()), `${n}/${scheme} plano sem datas`);
   // diagnóstico não conta em dobro: total de gastos igual com e sem divisão
   console.log(n, scheme, 'ok'); await ctx.close();
 }
