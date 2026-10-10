@@ -553,3 +553,9 @@ html[data-theme="light"] .flow-list .in{color:#15803d}html[data-theme="light"] .
 /* aviso de mudança de endereço (site antigo) */
 .moved{margin:12px 0;padding:14px 16px;border-radius:16px;border:1px solid #f7b731;background:rgba(247,183,49,.1)}
 .moved p{margin:6px 0}.moved ol{margin:8px 0;padding-left:20px}.moved-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+/* Consultor aberto: barra de abas visível e clicável por cima; o chat termina acima dela */
+body.chat-open nav{z-index:30}
+body.chat-open:not(.kb-open) .chat{height:calc(var(--vvh,100dvh) - var(--navh,72px))}
+body.chat-open:not(.kb-open) .chat-input{padding-bottom:10px}
+.chat-head{flex-shrink:0;position:sticky;top:0;z-index:2}.chat-input{flex-shrink:0}.chat-body{min-height:0}

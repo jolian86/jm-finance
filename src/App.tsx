@@ -4,6 +4,7 @@ import { MovedBanner } from './MovedBanner';
 import { exportBackup } from './backup';
 import { ThemePicker, ThemeTip, pickerDone } from './ThemePicker';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Chat from './Chat';
 import Evolucao from './Evolucao';
@@ -60,8 +61,14 @@ export default function App() {
   const q0 = new URLSearchParams(location.search).get('tab');
   const [diagView, setDiagView] = useState<'hoje' | 'evolucao'>(q0 === 'evolucao' ? 'evolucao' : 'hoje');
   const [simId, setSimId] = useState<SimId | undefined>(() => (new URLSearchParams(location.search).get('sim') as SimId) || undefined);
-  const openSim = (s?: SimId) => { setSimId(s); setChat(false); setTab('simulador'); window.scrollTo({ top: 0 }); };
-  const go = (t: Tab | AlertTab) => { if (t === 'evolucao') { setDiagView('evolucao'); setTab('diagnostico'); } else { if (t === 'diagnostico') setDiagView('hoje'); setTab(t); } window.scrollTo({ top: 0 }); };
+  // Consultor: entra no histórico (voltar do Android/navegador fecha), marca body.chat-open (barra de abas fica por cima e fecha o chat)
+  const openChat = () => { try { history.pushState({ ...(history.state || {}), jmChat: 1 }, ''); } catch { /* */ } setChat(true); };
+  const closeChat = () => { setChat(false); try { if (history.state?.jmChat) history.back(); } catch { /* */ } };
+  useEffect(() => { const f = () => setChat(false); window.addEventListener('popstate', f); return () => window.removeEventListener('popstate', f); }, []);
+  useEffect(() => { document.body.classList.toggle('chat-open', chat); }, [chat]);
+  useEffect(() => { const n = document.querySelector('nav'); if (!n) return; const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--navh', `${n.getBoundingClientRect().height}px`)); ro.observe(n); return () => ro.disconnect(); }, []);
+  const openSim = (s?: SimId) => { setSimId(s); closeChat(); setTab('simulador'); window.scrollTo({ top: 0 }); };
+  const go = (t: Tab | AlertTab) => { if (chat) closeChat(); if (t === 'evolucao') { setDiagView('evolucao'); setTab('diagnostico'); } else { if (t === 'diagnostico') setDiagView('hoje'); setTab(t); } window.scrollTo({ top: 0 }); };
   // termos de uso (aceite obrigatório no 1º uso, para usuários antigos e quando a versão muda)
   const accepted = hasAccepted(data.settings.terms);
   const [pick, setPick] = useState<'' | 'pick' | 'tip'>('');
@@ -102,9 +109,10 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
-      {!chat && <motion.button className="fab" onClick={() => setChat(true)} aria-label="Consultor JM" whileTap={{ scale: 0.92 }} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: 'spring', stiffness: 260, damping: 18 }}>
+      {!chat && <motion.button className="fab" onClick={openChat} aria-label="Consultor JM" whileTap={{ scale: 0.92 }} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: 'spring', stiffness: 260, damping: 18 }}>
         <Icon.chat /><span>Consultor</span></motion.button>}
-      <AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={() => setChat(false)} goGoals={() => { setChat(false); go('objetivos'); }} openSim={s => openSim(s)} goTab={t => { setChat(false); go(t); }} />}</AnimatePresence>
+      {/* portal no <body>: dentro de um ancestral com transform o position:fixed rolava junto com a página (iPhone: cabeçalho sumia) */}
+      {createPortal(<AnimatePresence>{chat && <Chat data={data} upd={upd} onClose={closeChat} goGoals={() => { go('objetivos'); }} openSim={s => openSim(s)} goTab={t => go(t)} />}</AnimatePresence>, document.body)}
       <AnimatePresence>{alertsOpen && <AlertsPanel alerts={alerts} dismissed={data.dismissedAlerts}
         onDismiss={id => upd({ dismissedAlerts: [...data.dismissedAlerts, id] })} onRestore={() => upd({ dismissedAlerts: [] })}
         onGo={(t, anchor) => { setAlertsOpen(false); go(t); if (anchor) scrollToId(anchor); }} onCloseMonth={() => { setAlertsOpen(false); setAskClose(true); }} onClose={() => setAlertsOpen(false)}
