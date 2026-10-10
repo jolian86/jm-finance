@@ -21,7 +21,7 @@ const json = (body: unknown, status: number, h: Record<string, string>) => new R
 
 export const onRequestOptions = ({ request, env }: Ctx) => new Response(null, { status: 204, headers: cors(request, env) });
 /** status: o app pergunta se a IA está ligada (para mostrar ou não "Modo simulação") */
-export const onRequestGet = ({ request, env }: Ctx) => json({ configured: !!env.GEMINI_API_KEY, model: env.GEMINI_MODEL || 'gemini-flash-latest', limit: Number(env.DAILY_LIMIT || 30) }, 200, cors(request, env));
+export const onRequestGet = ({ request, env }: Ctx) => json({ configured: !!env.GEMINI_API_KEY, model: env.GEMINI_MODEL || 'gemini-flash-latest', limit: Number(env.DAILY_LIMIT || 5) }, 200, cors(request, env));
 
 export async function onRequestPost({ request, env }: Ctx) {
   const h = cors(request, env);
@@ -38,7 +38,7 @@ export async function onRequestPost({ request, env }: Ctx) {
   if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return json({ error: 'bad_request' }, 400, h);
 
   // limite por aparelho por dia (id anônimo gerado no aparelho)
-  const limit = Number(env.DAILY_LIMIT || 30); const day = new Date().toISOString().slice(0, 10); const key = `rl:${day}:${dev}`;
+  const limit = Number(env.DAILY_LIMIT || 5); const day = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10); /* dia no horário de Brasília */ const key = `rl:${day}:${dev}`;
   const used = Number(await env.JM_AI_LIMITS.get(key)) || 0;
   if (used >= limit) return json({ error: 'daily_limit', limit }, 429, h);
   await env.JM_AI_LIMITS.put(key, String(used + 1), { expirationTtl: 60 * 60 * 30 });

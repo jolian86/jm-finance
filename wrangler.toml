@@ -5,7 +5,7 @@ compatibility_date = "2026-10-01"
 
 [vars]
 GEMINI_MODEL = "gemini-flash-latest"
-DAILY_LIMIT = "30"
+DAILY_LIMIT = "5"
 ALLOWED_ORIGINS = "https://jm-finance.pages.dev,https://jmfinance.com.br,https://www.jmfinance.com.br,https://jolian86.github.io"
 
 [[kv_namespaces]]

@@ -23,7 +23,7 @@ export const remoteProvider: ChatProvider = {
     try {
       const res = await fetch(AI_ENDPOINT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId: deviceId(), financialSummary, history: history.map(m => ({ role: m.role, content: m.content })) }) });
-      if (res.status === 429) return fallback('Você já usou as perguntas de hoje com a IA. Até amanhã eu sigo no modo simulação, com respostas automáticas:\n\n');
+      if (res.status === 429) { const n = Number((await res.json().catch(() => ({}))).limit) || 5; return fallback(`Você usou suas ${n} perguntas de hoje. Amanhã tem mais! 😊 Enquanto isso, sigo no modo simulação, com respostas automáticas:\n\n`); }
       if (!res.ok) return fallback();
       const j = await res.json(); const content = String(j.reply ?? '').trim();
       return content ? { content, simulated: false } : fallback();

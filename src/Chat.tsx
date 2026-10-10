@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Data, DISCLAIMER, uid } from './finance';
 import { getProvider, buildSummary, ChatMessage, ChatAction } from './ai';
 import { aiStatus } from './ai/remote';
+import { NAME_RX } from './ai/coachReplies';
 import type { SimLink } from './ai/types';
 import mark from './assets/jm-mark-96.webp';
 import { useOverlayLock } from './overlay';
@@ -31,6 +32,7 @@ export default function Chat({ data, upd, onClose, goGoals, openSim, goTab }: { 
     try { reply = await provider.sendMessage(history, buildSummary(data)); }
     catch { reply = { content: 'Não consegui responder agora. Tente novamente em instantes.' }; }
     if (!provider.simulated) setSim(!!reply.simulated);
+    if (!reply.setName) { const m = q.match(NAME_RX); if (m) reply.setName = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(); } // com a IA real também
     if (reply.setName) upd({ settings: { ...data.settings, name: reply.setName } });
     setMsgs(m => [...m, { id: uid(), role: 'assistant', content: reply.content, actions: reply.actions, at: Date.now() }]); setTyping(false);
   }
