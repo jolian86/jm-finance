@@ -4,7 +4,27 @@ export type Income = { id: string; name: string; amount: number; variable?: bool
 /** Renda por dia (diária). rate = quanto ganha por dia; days = quantos dias costuma trabalhar no mês; log = dias trabalhados ('AAAA-MM-DD' → quanto ganhou). */
 export type Daily = { rate: number; days: number; log?: Record<string, number> };
 /** kind é decidido pelo app (inferKind) a partir da categoria e do nome; kindSet = o usuário ajustou manualmente (então não muda sozinho). */
-export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel'; dueDay?: number; kindSet?: boolean };
+export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel'; dueDay?: number; kindSet?: boolean; split?: CardSplit };
+/** v15: "O que entra na fatura?" — divisão opcional da fatura do cartão (soma ≤ fatura; o resto fica "sem separar"). */
+export type CardSplit = Partial<Record<SplitKey, number>>;
+export type SplitKey = 'mercado' | 'delivery' | 'compras' | 'assinaturas' | 'combustivel' | 'saude' | 'lazer' | 'contas' | 'parcelas';
+export const SPLIT: { k: SplitKey; label: string; cat: Category }[] = [
+  { k: 'mercado', label: 'Mercado', cat: 'alimentacao' }, { k: 'delivery', label: 'Delivery e lanches', cat: 'alimentacao' }, { k: 'compras', label: 'Compras e roupas', cat: 'compras' },
+  { k: 'assinaturas', label: 'Assinaturas e apps', cat: 'assinaturas' }, { k: 'combustivel', label: 'Combustível e transporte', cat: 'transporte' }, { k: 'saude', label: 'Farmácia e saúde', cat: 'saude' },
+  { k: 'lazer', label: 'Saídas e lazer', cat: 'lazer' }, { k: 'contas', label: 'Contas da casa (luz, internet…)', cat: 'moradia' }, { k: 'parcelas', label: 'Parcelas de compras', cat: 'outros' }];
+export const splitSum = (e: Expense) => SPLIT.reduce((s, x) => s + (Number(e.split?.[x.k]) || 0), 0);
+/** Linhas "reais" para análise: a fatura dividida vira um item por parte (+ o que ficou sem separar). Não muda os totais. */
+export type Part = Expense & { parent?: string; splitKey?: SplitKey };
+export function expanded(list: Expense[]): Part[] {
+  return list.flatMap(e => {
+    if (e.category !== 'cartao' || !e.split || !splitSum(e)) return [e];
+    const parts: Part[] = SPLIT.filter(x => (Number(e.split![x.k]) || 0) > 0).map(x => ({ ...e, id: `${e.id}:${x.k}`, name: `${x.label} (no cartão)`, amount: Number(e.split![x.k]), category: x.cat, split: undefined, parent: e.id, splitKey: x.k }));
+    const rest = Math.max(0, e.amount - splitSum(e));
+    return rest > 0.5 ? [...parts, { ...e, id: `${e.id}:resto`, name: `${e.name} (sem separar)`, amount: rest, split: undefined, parent: e.id }] : parts;
+  });
+}
+const cleanSplit = (v: unknown): CardSplit | undefined => { if (!v || typeof v !== 'object') return undefined; const o: CardSplit = {};
+  for (const x of SPLIT) { const n = Number((v as Record<string, unknown>)[x.k]); if (n > 0) o[x.k] = Math.round(n * 100) / 100; } return Object.keys(o).length ? o : undefined; };
 export type DebtType = 'cartao_rotativo' | 'cheque_especial' | 'emprestimo_pessoal' | 'consignado' | 'financiamento_imovel' | 'financiamento_veiculo' | 'financiamento' | 'outro';
 /** rate = juros AO MÊS em % (canônico). rateUnit só muda como o usuário digita/vê. rateMode 'calc' = app calcula a taxa pela parcela.
  *  installments = parcelas restantes (opcional). minPayment = valor da parcela (ou pagamento mínimo no rotativo/cheque). */
@@ -46,11 +66,11 @@ export type Data = {
   receivables: Receivable[];
 };
 /** Versão do formato dos dados (sobe quando o formato muda; dados antigos passam por migrate). */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 /** terms: aceite dos Termos de Uso/Política de Privacidade (versão + data/hora ISO). */
-export type Settings = { alertTime: string; firstSeenAt?: string; lastBackupAt?: string; terms?: { version: string; acceptedAt: string }; recvMode?: RecvMode };
+export type Settings = { alertTime: string; name?: string; firstSeenAt?: string; lastBackupAt?: string; terms?: { version: string; acceptedAt: string }; recvMode?: RecvMode };
 export const DEFAULT_SETTINGS: Settings = { alertTime: '09:00' };
-export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'protecao' | 'outros';
+export type Category = 'moradia' | 'alimentacao' | 'transporte' | 'saude' | 'educacao' | 'lazer' | 'assinaturas' | 'compras' | 'protecao' | 'cartao' | 'outros';
 
 export const CATEGORIES: Record<Category, { label: string; short?: string; group: 'necessidade' | 'desejo' }> = {
   moradia: { label: 'Moradia', group: 'necessidade' },
@@ -62,6 +82,7 @@ export const CATEGORIES: Record<Category, { label: string; short?: string; group
   assinaturas: { label: 'Assinaturas', group: 'desejo' },
   compras: { label: 'Compras', group: 'desejo' },
   protecao: { label: 'Previdência e seguros', short: 'Prev./seguro', group: 'necessidade' },
+  cartao: { label: 'Fatura do cartão', short: 'Cartão', group: 'desejo' },
   outros: { label: 'Outros', group: 'desejo' },
 };
 export const DEBT_TYPES: Record<DebtType, string> = {
@@ -176,7 +197,7 @@ export function migrate(raw: unknown): Data {
   const arr = <T,>(v: unknown) => (Array.isArray(v) ? v as T[] : []);
   return {
     ...emptyData(), ...d,
-    incomes: arr<Income>(d.incomes).filter(o => o && typeof o === 'object').map(i => withDaily(cleanDaily({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable }))), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: (e.kind === 'variavel' ? 'variavel' : 'fixa') as Expense['kind'] })).map(e => ({ ...e, kindSet: typeof e.kindSet === 'boolean' ? e.kindSet : e.kind !== inferKind(e.category, e.name) })),
+    incomes: arr<Income>(d.incomes).filter(o => o && typeof o === 'object').map(i => withDaily(cleanDaily({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable }))), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: (e.kind === 'variavel' ? 'variavel' : 'fixa') as Expense['kind'], split: e.category === 'cartao' ? cleanSplit(e.split) : undefined })).map(e => ({ ...e, kindSet: typeof e.kindSet === 'boolean' ? e.kindSet : e.kind !== inferKind(e.category, e.name) })),
     debts: arr<Debt>(d.debts).filter(o => o && typeof o === 'object').map(x => { const inst = Math.round(Number(x.installments)); return { ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in DEBT_TYPES ? x.type : 'outro', balance: Number(x.balance) || 0, rate: Math.max(0, Number(x.rate) || 0), minPayment: Number(x.minPayment) || 0, rateUnit: x.rateUnit === 'aa' ? 'aa' : 'am', rateMode: x.rateMode === 'calc' || x.rateMode === 'media' ? x.rateMode : 'sei', installments: inst >= 1 && inst <= 600 ? inst : undefined, payAuto: !!x.payAuto }; }),
     assets: arr<Asset>(d.assets).filter(o => o && typeof o === 'object').map(x => { const name = String(x.name ?? ''); const type = assetTypeOf(x.type, name); const mo = Number(x.monthly); return { ...x, id: String(x.id || uid()), name, type, value: Number(x.value) || 0, liquid: ASSET_TYPES[type].liquid, monthly: mo > 0 ? mo : undefined, expenseId: typeof x.expenseId === 'string' ? x.expenseId : undefined, forRetirement: !!x.forRetirement }; }),
     goals: arr<Goal>(d.goals).filter(o => o && typeof o === 'object').map(g => ({ ...g, id: String(g.id || uid()), name: String(g.name ?? ''), type: g.type in GOAL_TYPES ? g.type : 'outro', target: Number(g.target) || 0, saved: Number(g.saved) || 0, date: typeof g.date === 'string' ? g.date : ym(12), priority: g.priority || 'media' as Goal['priority'], retire: migrateRetire(g.retire) })), reserve: Number(d.reserve) || 0,
@@ -187,7 +208,8 @@ export function migrate(raw: unknown): Data {
     settings: { ...DEFAULT_SETTINGS, ...(d.settings && typeof d.settings === 'object' ? d.settings : {}), alertTime: /^\d{2}:\d{2}$/.test(String(d.settings?.alertTime)) ? String(d.settings!.alertTime) : DEFAULT_SETTINGS.alertTime,
       firstSeenAt: isoOk(d.settings?.firstSeenAt) ? d.settings!.firstSeenAt : new Date().toISOString(), lastBackupAt: isoOk(d.settings?.lastBackupAt) ? d.settings!.lastBackupAt : undefined,
       terms: d.settings?.terms && typeof d.settings.terms.version === 'string' && isoOk(d.settings.terms.acceptedAt) ? { version: d.settings.terms.version, acceptedAt: d.settings.terms.acceptedAt } : undefined,
-      recvMode: d.settings?.recvMode === 'garantido' ? 'garantido' : 'ponderado' },
+      recvMode: d.settings?.recvMode === 'garantido' ? 'garantido' : 'ponderado',
+      name: typeof d.settings?.name === 'string' && d.settings.name.trim() ? d.settings.name.trim().slice(0, 30) : undefined },
   };
 }
 /** Rendimento antigo "0,5% a.m." era só o padrão da tela → passa ao novo padrão conservador. Valores ajustados pelo usuário são mantidos. */
@@ -249,7 +271,7 @@ export function diagnose(d: Data) {
   const balance = income - outflow;
   const commitment = income ? outflow / income : 0;
   const dti = income ? minPayments / income : 0;
-  const essentials = d.expenses.filter(e => CATEGORIES[e.category].group === 'necessidade').reduce((s, e) => s + e.amount, 0);
+  const essentials = expanded(d.expenses).filter(e => CATEGORIES[e.category].group === 'necessidade').reduce((s, e) => s + e.amount, 0);
   const wants = expenses - essentials;
   const assets = d.assets || [];
   const totalAssets = assets.reduce((s, a) => s + (Number(a.value) || 0), 0);
@@ -352,10 +374,10 @@ export function actionPlan(d: Data) {
   if (r.wants > targetWants) {
     const factor = targetWants / r.wants;
     const byCat: Record<string, number> = {};
-    d.expenses.filter(e => CATEGORIES[e.category].group === 'desejo').forEach(e => byCat[e.category] = (byCat[e.category] || 0) + e.amount);
+    expanded(d.expenses).filter(e => CATEGORIES[e.category].group === 'desejo' && e.splitKey !== 'parcelas').forEach(e => byCat[e.category] = (byCat[e.category] || 0) + e.amount);
     Object.entries(byCat).forEach(([c, v]) => cuts.push({ name: CATEGORIES[c as Category].label, current: v, suggested: Math.round(v * factor) }));
   }
-  const varNeeds = d.expenses.filter(e => e.kind === 'variavel' && CATEGORIES[e.category].group === 'necessidade');
+  const varNeeds = expanded(d.expenses).filter(e => e.kind === 'variavel' && CATEGORIES[e.category].group === 'necessidade');
   if (r.essentials > targetNeeds) varNeeds.forEach(e => cuts.push({ name: `${e.name} (${CATEGORIES[e.category].label})`, current: e.amount, suggested: Math.round(e.amount * 0.85) }));
   const savings = cuts.reduce((s, c) => s + c.current - c.suggested, 0);
 
