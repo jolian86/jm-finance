@@ -3,7 +3,7 @@ const URL=process.argv[2]||'http://localhost:4199/';
 const sizes0=[[375,667],[390,844],[360,740],[412,915],[430,932],[820,1180],[1366,768]];const sizes=process.env.S?sizes0.filter(s=>process.env.S.split(',').includes(String(s[0]))):sizes0;const fails=[];let n=0;
 const ok=(c,m)=>{n++;if(!c)fails.push(m)};const wait=t=>new Promise(r=>setTimeout(r,t));
 for(const [bn,bt] of [['webkit',webkit],['chromium',chromium]]){const b=await bt.launch();
-for(const [w,h] of sizes){for(const scheme of (w===390?['light','dark']:[w%2?'dark':'light'])){const mob=w<800;
+for(const [w,h] of sizes){for(const scheme of (w===390||process.env.BOTH?['light','dark']:[w%2?'dark':'light'])){const mob=w<800;
  const ctx=await b.newContext({viewport:{width:w,height:h},colorScheme:scheme,hasTouch:mob,isMobile:mob&&bn==='chromium',userAgent:mob?devices['iPhone 13'].userAgent:undefined});
  const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
  await p.route('**/api/chat',r=>r.request().method()==='GET'?r.fulfill({status:200,contentType:'application/json',body:'{"configured":true}'}):r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({reply:'Resposta de teste da IA. '.repeat(40),remaining:3})}));

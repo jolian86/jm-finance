@@ -12,7 +12,7 @@ export function buildSummary(d: Data): FinancialSummary {
     hasData: d.incomes.length > 0,
     userName: d.settings.name || undefined,
     cashflow: (() => { const f = cashflow(d); return f ? { startDay: f.start, deficit: f.deficit, paydays: f.paydays, tightDays: dayRanges(f.tight), worstDay: f.minDay, worstBalance: f.minBal, billsBeforeMoney: f.early.map(e => ({ name: e.name, day: e.day, amount: e.amount, suggestDay: e.suggest })) } : undefined; })(),
-    coach: (() => { const rv = reviewExpenses(d, r.income); return { drivers: drivers(d), path: pathTo(d), expenseNotes: rv.notes, others: rv.others, hasRevolving: d.debts.some(x => x.type === 'cartao_rotativo'), cardParcelas: d.expenses.reduce((a, e) => a + (e.category === 'cartao' ? Number(e.split?.parcelas) || 0 : 0), 0),
+    coach: (() => { const rv = reviewExpenses(d, r.income); return { drivers: drivers(d), path: pathTo(d), expenseNotes: rv.notes, others: rv.others, hasRevolving: d.debts.some(x => x.type === 'cartao_rotativo'), cardBills: d.expenses.filter(e => e.category === 'cartao' && e.bill).map(e => ({ name: e.name, amount: e.amount, readAt: e.bill!.at, charges: e.bill!.charges, parcelas: e.bill!.parcelas, subscriptions: e.bill!.subs })), cardParcelas: d.expenses.reduce((a, e) => a + (e.category === 'cartao' ? Number(e.split?.parcelas) || 0 : 0), 0),
       expenses: d.expenses.map(e => ({ id: e.id, name: e.name, amount: e.amount, category: CATEGORIES[e.category]?.label ?? e.category })), incomeKinds: { variable: d.incomes.some(i => i.variable), daily: d.incomes.some(isDaily) } }; })(),
     income: r.income, expenses: r.expenses, minPayments: r.minPayments, balance: r.balance,
     commitmentPct: r.commitment * 100, debtToIncomePct: r.dti * 100, monthlyInterest: r.monthlyInterest,

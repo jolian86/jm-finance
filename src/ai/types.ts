@@ -19,7 +19,7 @@ export type FinancialSummary = {
   cashflow?: { startDay: number; deficit: number; paydays: { name: string; day: number; amount: number }[]; tightDays: string; worstDay: number; worstBalance: number; billsBeforeMoney: { name: string; day: number; amount: number; suggestDay: number }[] };
   /** v15: o que puxa a nota para baixo, caminho até 80 e análise gasto a gasto */
   coach: { drivers: { pts: number; text: string }[]; path: { start: number; end: number; reached: boolean; steps: { kind: string; text: string; from: number; to: number; expenseId?: string }[] };
-    expenseNotes: { id: string; name: string; amount: number; typical: number; save: number; label: string; tips: string[] }[]; others: { id: string; name: string; amount: number; sharePct: number; kind: 'outros' | 'cartao'; split: boolean; parcelas: number }[]; hasRevolving: boolean; cardParcelas: number;
+    expenseNotes: { id: string; name: string; amount: number; typical: number; save: number; label: string; tips: string[] }[]; others: { id: string; name: string; amount: number; sharePct: number; kind: 'outros' | 'cartao'; split: boolean; parcelas: number }[]; hasRevolving: boolean; cardBills?: { name: string; amount: number; readAt: string; charges: number; parcelas: { n: string; a: number; i: string }[]; subscriptions: { n: string; a: number }[] }[]; cardParcelas: number;
     expenses: { id: string; name: string; amount: number; category: string }[]; incomeKinds: { variable: boolean; daily: boolean } };
   income: number; expenses: number; minPayments: number; balance: number;
   commitmentPct: number; debtToIncomePct: number; monthlyInterest: number;

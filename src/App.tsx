@@ -1,5 +1,7 @@
 import { useTheme, ThemeButton } from './theme';
 import { FlowCard } from './FlowCard';
+import { FaturaReader } from './FaturaReader';
+import { FATURA_URL } from './fatura';
 import { MovedBanner } from './MovedBanner';
 import { exportBackup } from './backup';
 import { ThemePicker, ThemeTip, pickerDone } from './ThemePicker';
@@ -281,8 +283,9 @@ function CardSplitBox({ e, set }: { e: Expense; set: (p: Partial<Expense>) => vo
   return <div className={`card-split ${open ? 'open' : ''}`} ref={ref}>
     <button type="button" className="adv-toggle" aria-expanded={open} onClick={() => setOpen(o => !o)}><span>O que entra na fatura? (opcional)</span>{!open && <small>{tot ? `${brl(tot)} separados` : 'separe por alto'}</small>}<span className="adv-chev" aria-hidden="true">▾</span></button>
     {open && <div className="adv-body">
-      <button type="button" className="btn ghost sm photo-bill" onClick={() => setSoon(v => !v)} aria-expanded={soon}>📷 Fotografar fatura (ou enviar PDF) <span className="soon-tag">em breve</span></button>
-      {soon && <p className="soon-note" role="status">Em breve o app vai ler a sua fatura e preencher tudo sozinho — você só confere. Por enquanto, coloque os valores aqui embaixo, por alto mesmo. 😉</p>}
+      {FATURA_URL ? <FaturaReader e={e} set={set} /> : <>
+        <button type="button" className="btn ghost sm photo-bill" onClick={() => setSoon(v => !v)} aria-expanded={soon}>📷 Fotografar fatura (ou enviar PDF) <span className="soon-tag">em breve</span></button>
+        {soon && <p className="soon-note" role="status">Em breve o app vai ler a sua fatura e preencher tudo sozinho — você só confere. Por enquanto, coloque os valores aqui embaixo, por alto mesmo. 😉</p>}</>}
       <p className="fhint">Coloque, por alto, quanto da fatura vai para cada coisa. Não precisa fechar certinho. Assim o app enxerga para onde o dinheiro vai.</p>
       <div className="split-grid">{SPLIT.map(x => <label key={x.k}><span>{x.label}</span>
         <MoneyInput label={`${x.label} na fatura`} value={e.split?.[x.k] || 0} onChange={n => { const sp = { ...e.split, [x.k]: n ?? 0 }; Object.keys(sp).forEach(k => { if (!sp[k as SplitKey]) delete sp[k as SplitKey]; }); set({ split: Object.keys(sp).length ? sp : undefined }); }} /></label>)}</div>

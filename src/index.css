@@ -559,3 +559,15 @@ body.chat-open nav{z-index:30}
 body.chat-open:not(.kb-open) .chat{height:calc(var(--vvh,100dvh) - var(--navh,72px))}
 body.chat-open:not(.kb-open) .chat-input{padding-bottom:10px}
 .chat-head{flex-shrink:0;position:sticky;top:0;z-index:2}.chat-input{flex-shrink:0}.chat-body{min-height:0}
+/* leitura da fatura */
+.fat-read{margin-bottom:8px}.fat-read .photo-bill{display:inline-flex;align-items:center;gap:8px}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}
+.fat-err{color:#ff9b8a;font-size:.86rem;margin:6px 0}.fat-ok{color:var(--good,#5bd49a);font-size:.86rem;margin:6px 0}
+.fat-warn{font-size:.85rem;background:rgba(255,155,138,.1);border:1px solid rgba(255,155,138,.35);border-radius:10px;padding:8px 10px}
+.fat-total{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0;font-weight:600}
+.fat-cats{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.fat-cats span{font-size:.78rem;padding:4px 8px;border-radius:999px;border:1px solid var(--line)}
+.fat-list{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:8px}
+.fat-list li{border:1px solid var(--line2);border-radius:12px;padding:8px 10px}
+.fat-l1{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.fat-desc{font-size:.88rem;word-break:break-word}.fat-desc small{opacity:.65}
+.fat-tag{font-style:normal;font-size:.7rem;margin-left:6px;padding:1px 6px;border-radius:6px;background:rgba(193,121,37,.18)}
+.fat-l2{display:flex;gap:8px;margin-top:6px;align-items:center}.fat-l2 select{flex:1;min-width:0}.fat-l2 .money{flex:0 0 130px}

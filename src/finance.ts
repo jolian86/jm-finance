@@ -5,7 +5,9 @@ export type Income = { id: string; name: string; amount: number; /** dia do mês
 /** Renda por dia (diária). rate = quanto ganha por dia; days = quantos dias costuma trabalhar no mês; log = dias trabalhados ('AAAA-MM-DD' → quanto ganhou). */
 export type Daily = { rate: number; days: number; log?: Record<string, number> };
 /** kind é decidido pelo app (inferKind) a partir da categoria e do nome; kindSet = o usuário ajustou manualmente (então não muda sozinho). */
-export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel'; dueDay?: number; kindSet?: boolean; split?: CardSplit };
+export type Expense = { id: string; name: string; amount: number; category: Category; kind: 'fixa' | 'variavel'; dueDay?: number; kindSet?: boolean; split?: CardSplit; bill?: BillInfo };
+/** o que a leitura da fatura encontrou (para o Consultor): parcelamentos, assinaturas e juros/encargos */
+export type BillInfo = { at: string; card?: string; charges: number; parcelas: { n: string; a: number; i: string }[]; subs: { n: string; a: number }[] };
 /** v15: "O que entra na fatura?" — divisão opcional da fatura do cartão (soma ≤ fatura; o resto fica "sem separar"). */
 export type CardSplit = Partial<Record<SplitKey, number>>;
 export type SplitKey = 'mercado' | 'delivery' | 'compras' | 'assinaturas' | 'combustivel' | 'saude' | 'lazer' | 'contas' | 'parcelas';
@@ -193,12 +195,18 @@ export const thisMonth = () => { const d = new Date(); return `${d.getFullYear()
 export const emptyData = (): Data => ({ incomes: [], expenses: [], debts: [], reserve: 0, assets: [], goals: [], month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS }, receivables: [] });
 const isoOk = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
 // Migra dados antigos (sem assets/goals) sem quebrar
+function cleanBill(b: unknown): BillInfo | undefined {
+  if (!b || typeof b !== 'object') return undefined; const o = b as Partial<BillInfo>;
+  const L = <T,>(a: unknown, f: (x: Record<string, unknown>) => T) => Array.isArray(a) ? a.filter(x => x && typeof x === 'object').slice(0, 30).map(x => f(x as Record<string, unknown>)) : [];
+  return { at: String(o.at || '').slice(0, 10), card: o.card ? String(o.card).slice(0, 40) : undefined, charges: Number(o.charges) || 0,
+    parcelas: L(o.parcelas, x => ({ n: String(x.n ?? '').slice(0, 80), a: Number(x.a) || 0, i: String(x.i ?? '').slice(0, 7) })), subs: L(o.subs, x => ({ n: String(x.n ?? '').slice(0, 80), a: Number(x.a) || 0 })) };
+}
 export function migrate(raw: unknown): Data {
   const d = (raw && typeof raw === 'object' ? raw : {}) as Partial<Data>;
   const arr = <T,>(v: unknown) => (Array.isArray(v) ? v as T[] : []);
   return {
     ...emptyData(), ...d,
-    incomes: arr<Income>(d.incomes).filter(o => o && typeof o === 'object').map(i => withDaily(cleanDaily({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable, payDay: Number.isInteger(Number(i.payDay)) && Number(i.payDay) >= 1 && Number(i.payDay) <= 31 ? Number(i.payDay) : undefined }))), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: (e.kind === 'variavel' ? 'variavel' : 'fixa') as Expense['kind'], split: e.category === 'cartao' ? cleanSplit(e.split) : undefined })).map(e => ({ ...e, kindSet: typeof e.kindSet === 'boolean' ? e.kindSet : e.kind !== inferKind(e.category, e.name) })),
+    incomes: arr<Income>(d.incomes).filter(o => o && typeof o === 'object').map(i => withDaily(cleanDaily({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable, payDay: Number.isInteger(Number(i.payDay)) && Number(i.payDay) >= 1 && Number(i.payDay) <= 31 ? Number(i.payDay) : undefined }))), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: (e.kind === 'variavel' ? 'variavel' : 'fixa') as Expense['kind'], split: e.category === 'cartao' ? cleanSplit(e.split) : undefined, bill: e.category === 'cartao' ? cleanBill(e.bill) : undefined })).map(e => ({ ...e, kindSet: typeof e.kindSet === 'boolean' ? e.kindSet : e.kind !== inferKind(e.category, e.name) })),
     debts: arr<Debt>(d.debts).filter(o => o && typeof o === 'object').map(x => { const inst = Math.round(Number(x.installments)); return { ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in DEBT_TYPES ? x.type : 'outro', balance: Number(x.balance) || 0, rate: Math.max(0, Number(x.rate) || 0), minPayment: Number(x.minPayment) || 0, rateUnit: x.rateUnit === 'aa' ? 'aa' : 'am', rateMode: x.rateMode === 'calc' || x.rateMode === 'media' ? x.rateMode : 'sei', installments: inst >= 1 && inst <= 600 ? inst : undefined, payAuto: !!x.payAuto }; }),
     assets: arr<Asset>(d.assets).filter(o => o && typeof o === 'object').map(x => { const name = String(x.name ?? ''); const type = assetTypeOf(x.type, name); const mo = Number(x.monthly); return { ...x, id: String(x.id || uid()), name, type, value: Number(x.value) || 0, liquid: ASSET_TYPES[type].liquid, monthly: mo > 0 ? mo : undefined, expenseId: typeof x.expenseId === 'string' ? x.expenseId : undefined, forRetirement: !!x.forRetirement }; }),
     goals: arr<Goal>(d.goals).filter(o => o && typeof o === 'object').map(g => ({ ...g, id: String(g.id || uid()), name: String(g.name ?? ''), type: g.type in GOAL_TYPES ? g.type : 'outro', target: Number(g.target) || 0, saved: Number(g.saved) || 0, date: typeof g.date === 'string' ? g.date : ym(12), priority: g.priority || 'media' as Goal['priority'], retire: migrateRetire(g.retire) })), reserve: Number(d.reserve) || 0,
