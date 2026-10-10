@@ -8,7 +8,7 @@ export type ChatAction = { type: 'create_goal'; label: string; goal: { name: str
   /** abre "O que entra na fatura?" no gasto (e, se toCard, antes transforma o gasto em Fatura do cartão) */
   | { type: 'card'; label: string; expenseId: string; toCard?: boolean };
 export type ChatMessage = { id: string; role: ChatRole; content: string; at: number; actions?: ChatAction[]; done?: boolean };
-export type ChatReply = { content: string; actions?: ChatAction[]; setName?: string };
+export type ChatReply = { content: string; actions?: ChatAction[]; setName?: string; /** true quando a resposta veio do modo simulação (IA desligada ou indisponível) */ simulated?: boolean };
 
 /** Resumo financeiro enviado ao consultor (simulado ou LLM real). Sem dados identificáveis. */
 export type FinancialSummary = {

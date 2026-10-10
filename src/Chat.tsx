@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Data, DISCLAIMER, uid } from './finance';
 import { getProvider, buildSummary, ChatMessage, ChatAction } from './ai';
+import { aiStatus } from './ai/remote';
 import type { SimLink } from './ai/types';
 import mark from './assets/jm-mark-96.webp';
 import { useOverlayLock } from './overlay';
@@ -17,6 +18,8 @@ export default function Chat({ data, upd, onClose, goGoals, openSim, goTab }: { 
   const [msgs, setMsgs] = useState<ChatMessage[]>(loadChat);
   const [text, setText] = useState('');
   const [typing, setTyping] = useState(false);
+  const [sim, setSim] = useState(true);
+  useEffect(() => { if (!provider.simulated) aiStatus().then(on => setSim(!on)); }, [provider]);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { localStorage.setItem(KEY, JSON.stringify(msgs.slice(-100))); end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [msgs, typing]);
 
@@ -24,9 +27,10 @@ export default function Chat({ data, upd, onClose, goGoals, openSim, goTab }: { 
     q = q.trim(); if (!q || typing) return;
     const history = [...msgs, { id: uid(), role: 'user' as const, content: q, at: Date.now() }];
     setMsgs(history); setText(''); setTyping(true);
-    let reply: { content: string; actions?: ChatAction[]; setName?: string };
+    let reply: { content: string; actions?: ChatAction[]; setName?: string; simulated?: boolean };
     try { reply = await provider.sendMessage(history, buildSummary(data)); }
     catch { reply = { content: 'Não consegui responder agora. Tente novamente em instantes.' }; }
+    if (!provider.simulated) setSim(!!reply.simulated);
     if (reply.setName) upd({ settings: { ...data.settings, name: reply.setName } });
     setMsgs(m => [...m, { id: uid(), role: 'assistant', content: reply.content, actions: reply.actions, at: Date.now() }]); setTyping(false);
   }
@@ -56,12 +60,12 @@ export default function Chat({ data, upd, onClose, goGoals, openSim, goTab }: { 
     <div className="chat-head">
       <button className="chat-back" onClick={onClose} aria-label="Fechar">←</button>
       <img src={mark} alt="" width={34} height={34} className="chat-avatar" />
-      <div className="chat-title"><b>Consultor JM</b>{provider.simulated && <span className="badge-sim">MODO SIMULAÇÃO</span>}</div>
+      <div className="chat-title"><b>Consultor JM</b>{sim && <span className="badge-sim">MODO SIMULAÇÃO</span>}</div>
       {msgs.length > 0 && <button className="link chat-clear" onClick={() => setMsgs([])}>Limpar</button>}
     </div>
     <div className="chat-body">
       <div className="msg bot"><p>Olá! Sou o Consultor JM. Já conheço seus números do app — é só perguntar. Eu mostro opções com prós, contras e riscos; quem decide é você.</p>
-        {provider.simulated && <p className="sim-note">Modo simulação: respostas automáticas baseadas em regras e nos seus dados. A IA real ainda não está conectada.</p>}
+        {sim && <p className="sim-note">Modo simulação: respostas automáticas baseadas em regras e nos seus dados. A IA real ainda não está conectada.</p>}
         <p className="jm-disc">{DISCLAIMER}</p></div>
       {msgs.map(m => <motion.div key={m.id} {...bubble} className={`msg ${m.role === 'user' ? 'me' : 'bot'}`}><p>{m.content}</p>
         {m.actions && !m.done && <div className="msg-actions">{m.actions.map((a, i) => <button key={i} className={`btn sm ${a.type === 'open_sim' || a.type === 'go' ? 'ghost' : ''}`} onClick={() => runAction(m.id, a)}>{a.label}{a.type === 'open_sim' ? ' →' : ''}</button>)}</div>}

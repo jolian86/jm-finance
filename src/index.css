@@ -550,3 +550,6 @@ html[data-theme="light"] .flow-card .flow-ok{color:#15803d}
 .flow-list li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:4px 0}
 .flow-list .in{color:#86efac}.flow-list .neg{color:#fca5a5}
 html[data-theme="light"] .flow-list .in{color:#15803d}html[data-theme="light"] .flow-list .neg{color:#b91c1c}
+/* aviso de mudança de endereço (site antigo) */
+.moved{margin:12px 0;padding:14px 16px;border-radius:16px;border:1px solid #f7b731;background:rgba(247,183,49,.1)}
+.moved p{margin:6px 0}.moved ol{margin:8px 0;padding-left:20px}.moved-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}

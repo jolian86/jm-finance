@@ -5,7 +5,7 @@ import type { FinancialSummary } from './types';
  * NUNCA coloque chaves de API no app — o app chama este endpoint, que chama o LLM.
  * Deixe vazio para usar o Modo simulação.
  */
-export const AI_ENDPOINT_URL = ''; // ex.: 'https://jm-finance-ai.<conta>.workers.dev/chat'
+export const AI_ENDPOINT_URL: string = (import.meta.env && import.meta.env.VITE_AI_ENDPOINT) || ''; // Cloudflare: /api/chat (build:cf); GitHub Pages: vazio = simulação
 
 export const SYSTEM_PROMPT = `Você é o "Consultor JM", assistente do app JM Finance, voltado a brasileiros sem formação em finanças.
 Responda sempre em português do Brasil, com linguagem simples, acolhedora e direta, sem jargões. O usuário não precisa entender conceitos financeiros: você traduz.

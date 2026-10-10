@@ -1,17 +1,30 @@
-import type { ChatProvider } from './types';
-import { AI_ENDPOINT_URL, SYSTEM_PROMPT, buildContext } from './prompt';
+import type { ChatProvider, ChatReply } from './types';
+import { AI_ENDPOINT_URL } from './prompt';
+import { simulatedReply } from './simulated';
 
-/** Provedor real (futuro): envia histórico + resumo ao endpoint serverless, que chama o LLM. */
+/** id anônimo do aparelho (só para o limite diário de perguntas à IA) */
+export function deviceId() {
+  try { let v = localStorage.getItem('jmfinance:device'); if (!v) { v = crypto.randomUUID(); localStorage.setItem('jmfinance:device', v); } return v; }
+  catch { return 'sem-armazenamento-' + Math.random().toString(36).slice(2, 10); }
+}
+/** a IA está ligada no servidor? (sem chave → o app usa o modo simulação) */
+export async function aiStatus(): Promise<boolean> {
+  if (!AI_ENDPOINT_URL) return false;
+  try { const r = await fetch(AI_ENDPOINT_URL, { method: 'GET', cache: 'no-store' }); return r.ok && !!(await r.json()).configured; } catch { return false; }
+}
+/** Provedor real: o servidor monta o prompt (src/ai/prompt.ts) e chama o Gemini. Qualquer falha → resposta simulada. */
 export const remoteProvider: ChatProvider = {
   id: 'remote', label: 'Consultor JM (IA)', simulated: false,
-  async sendMessage(history, financialSummary) {
-    const res = await fetch(AI_ENDPOINT_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system: SYSTEM_PROMPT, context: buildContext(financialSummary),
-        messages: history.map(m => ({ role: m.role, content: m.content })) }),
-    });
-    if (!res.ok) throw new Error(`Erro ${res.status}`);
-    const j = await res.json();
-    return { content: String(j.reply ?? ''), actions: Array.isArray(j.actions) ? j.actions : undefined };
+  async sendMessage(history, financialSummary): Promise<ChatReply> {
+    const last = [...history].reverse().find(m => m.role === 'user');
+    const fallback = (prefix = '') => { const r = simulatedReply(last?.content ?? '', financialSummary, history.slice(0, -1)); return { ...r, content: prefix + r.content, simulated: true }; };
+    try {
+      const res = await fetch(AI_ENDPOINT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: deviceId(), financialSummary, history: history.map(m => ({ role: m.role, content: m.content })) }) });
+      if (res.status === 429) return fallback('Você já usou as perguntas de hoje com a IA. Até amanhã eu sigo no modo simulação, com respostas automáticas:\n\n');
+      if (!res.ok) return fallback();
+      const j = await res.json(); const content = String(j.reply ?? '').trim();
+      return content ? { content, simulated: false } : fallback();
+    } catch { return fallback(); }
   },
 };

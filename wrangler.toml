@@ -1,0 +1,13 @@
+# Cloudflare Pages: app estático (dist) + Pages Functions (functions/api/chat.ts = Consultor JM com IA)
+name = "jm-finance"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-10-01"
+
+[vars]
+GEMINI_MODEL = "gemini-3.8-flash"
+DAILY_LIMIT = "30"
+ALLOWED_ORIGINS = "https://jm-finance.pages.dev,https://jmfinance.com.br,https://www.jmfinance.com.br,https://jolian86.github.io"
+
+[[kv_namespaces]]
+binding = "JM_AI_LIMITS"
+id = "277a25be86f64841898bbbb22dbf581a"

@@ -1,5 +1,7 @@
 import { useTheme, ThemeButton } from './theme';
 import { FlowCard } from './FlowCard';
+import { MovedBanner } from './MovedBanner';
+import { exportBackup } from './backup';
 import { ThemePicker, ThemeTip, pickerDone } from './ThemePicker';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
@@ -83,6 +85,7 @@ export default function App() {
       <header><BrandLockup small />
         <div className="head-right">{data.isExample && <span className="badge-ex">EXEMPLO</span>}<ThemeButton theme={theme} onToggle={toggleTheme} /><Bell count={unread} onClick={() => setAlertsOpen(true)} /></div></header>
       <main>
+        <MovedBanner onBackup={() => { exportBackup(data, true); }} />
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
             {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} upd={upd} setData={replaceData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
