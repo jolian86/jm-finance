@@ -576,3 +576,9 @@ body.chat-open:not(.kb-open) .chat-input{padding-bottom:10px}
 .buy-col{border:1px solid var(--line2);border-radius:12px;padding:10px;font-size:.86rem}.buy-col>b{display:block;margin-bottom:4px;color:var(--gold,#e0b25a)}.buy-col p{margin:4px 0}
 .buy-note{opacity:.75;font-size:.8rem}.bad-t{color:#ff9b8a}.buy-adv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.buy-adv label{display:flex;flex-direction:column;gap:4px;font-size:.82rem}
 body.chat-open nav{background:var(--bg)}
+.moved-wrap{position:fixed;inset:0;z-index:200;display:grid;place-items:center;overflow:auto;padding:max(16px,env(safe-area-inset-top)) 14px max(16px,env(safe-area-inset-bottom));background:rgba(5,4,2,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.moved-card{width:100%;max-width:520px;background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.moved-card h2{margin:0 0 8px;font-size:1.25rem}.moved-card ol{padding-left:1.2rem;margin:10px 0}.moved-card li{margin:8px 0;line-height:1.45}.moved-card li .btn{margin-top:6px}
+.moved-ok{color:var(--good,#5bd49a);font-size:.85rem}.moved-card .moved-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.moved{margin:calc(10px + env(safe-area-inset-top)) max(12px,calc(50% - 348px)) 0;position:relative;z-index:2}
+.moved-card a:not(.btn),.moved a:not(.btn){color:#c98a2b;font-weight:600}.moved-card .btn{text-decoration:none}

@@ -96,11 +96,11 @@ export default function App() {
     <MotionConfig reducedMotion="user">
     <AnimatePresence>{splash && <Splash onDone={() => { sessionStorage.setItem('jm:splash', '1'); setSplash(false); }} />}</AnimatePresence>
     <AnimatePresence>{!accepted && <Welcome key="welcome" prev={data.settings.terms} hasData={hasData || data.debts.length > 0 || data.goals.length > 0 || data.history.length > 0} onAccept={acceptTerms} />}</AnimatePresence>
+    <MovedBanner onBackup={() => { exportBackup(data, true); }} />
     {accepted && <div className="app">
       <header><BrandLockup small />
         <div className="head-right">{data.isExample && <span className="badge-ex">EXEMPLO</span>}<ThemeButton theme={theme} onToggle={toggleTheme} /><Bell count={unread} onClick={() => setAlertsOpen(true)} /></div></header>
       <main>
-        <MovedBanner onBackup={() => { exportBackup(data, true); }} />
         <AnimatePresence mode="wait">
           <motion.div key={tab === 'simulador' ? 'sim' + (simId ?? '') : tab} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
             {tab === 'inicio' && <Home data={data} hasData={hasData} go={go} upd={upd} setData={replaceData} onCloseMonth={() => setAskClose(true)} onTerms={() => setTermsOpen(true)} />}
