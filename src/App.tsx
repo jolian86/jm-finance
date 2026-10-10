@@ -69,7 +69,12 @@ export default function App() {
   const closeChat = () => { setChat(false); try { if (history.state?.jmChat) history.back(); } catch { /* */ } };
   useEffect(() => { const f = () => setChat(false); window.addEventListener('popstate', f); return () => window.removeEventListener('popstate', f); }, []);
   useEffect(() => { document.body.classList.toggle('chat-open', chat); }, [chat]);
-  useEffect(() => { const n = document.querySelector('nav'); if (!n) return; const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--navh', `${n.getBoundingClientRect().height}px`)); ro.observe(n); return () => ro.disconnect(); }, []);
+  // altura real da barra de abas (inclui a área segura do iPhone): o chat termina logo acima dela
+  useEffect(() => { const n = document.querySelector('nav') as HTMLElement | null; if (!n) return;
+    const f = () => n.getBoundingClientRect().height > 0 && document.documentElement.style.setProperty('--navh', `${Math.ceil(window.innerHeight - n.getBoundingClientRect().top)}px`);
+    f(); const ro = new ResizeObserver(f); ro.observe(n, { box: 'border-box' }); window.addEventListener('resize', f); window.visualViewport?.addEventListener('resize', f);
+    const t = setInterval(f, 1000);
+    return () => { ro.disconnect(); window.removeEventListener('resize', f); window.visualViewport?.removeEventListener('resize', f); clearInterval(t); }; }, [chat]);
   const openSim = (s?: SimId) => { setSimId(s); closeChat(); setTab('simulador'); window.scrollTo({ top: 0 }); };
   const go = (t: Tab | AlertTab) => { if (chat) closeChat(); if (t === 'evolucao') { setDiagView('evolucao'); setTab('diagnostico'); } else { if (t === 'diagnostico') setDiagView('hoje'); setTab(t); } window.scrollTo({ top: 0 }); };
   // termos de uso (aceite obrigatório no 1º uso, para usuários antigos e quando a versão muda)
