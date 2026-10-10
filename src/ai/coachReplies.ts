@@ -129,3 +129,20 @@ export function flowReply(s: S): ChatReply {
   if (f.tightDays) l.push('\nEnquanto isso: separe o valor dessas contas assim que o dinheiro cair, e deixe as compras do mês para depois do pagamento.');
   return { content: l.join('\n'), actions: [{ type: 'go', label: 'Ver o mês dia a dia', tab: 'diagnostico' }] };
 }
+
+/** Objeção ("mercado não dá pra cortar, é comida"): aceita, não repete e segue para as outras alavancas. */
+export const isObjection = (t: string) => /\bnao (da|tem como|consigo|posso|quero|vou|rola)\b.*\b(cortar|corta|baixar|reduzir|diminuir|mexer|gastar menos|tirar)|\b(e|eh) (essencial|comida|necessario)\b|preciso (comer|disso|dele|dela)|nao tem como gastar menos/.test(t);
+export function objectionReply(s: S, t: string): ChatReply {
+  const food = /mercado|comida|aliment|feira|comer/.test(t);
+  const k = KINDS.find(x => x.rx.test(t)); const hi = s.userName ? `${s.userName}, f` : 'F';
+  const hitItem = (name: string) => (k && k.rx.test(norm(name))) || (food && /mercado|aliment|feira|supermerc/.test(norm(name)));
+  const label = food ? 'alimentação' : k?.label ?? 'esse gasto';
+  const rest = s.coach.expenseNotes.filter(n => !hitItem(n.name));
+  const l = [`${hi}az todo sentido — ${label} ${food ? 'é essencial' : 'fica como está'}. Não vou mais sugerir mexer nisso.`];
+  if (rest.length) { l.push('\nAinda dá para avançar por outros lados:'); rest.slice(0, 3).forEach(n => l.push(`• ${n.name}: ${brl(n.amount)} → perto de ${brl(n.typical)} (sobram ~${brl(n.save)})`)); }
+  const other = s.coach.path.steps.filter(x => x.kind !== 'cortar');
+  if (other.length) { l.push('\nE fora dos gastos:'); other.slice(0, 3).forEach(x => l.push(`• ${x.text}`)); }
+  if (s.cashflow?.billsBeforeMoney.length) l.push(`• Mudar o vencimento de “${s.cashflow.billsBeforeMoney[0].name}” para o dia ${s.cashflow.billsBeforeMoney[0].suggestDay}, logo depois que você recebe.`);
+  if (food) l.push('\nSe um dia quiser, uma ajuda leve no mercado é ir com lista — mas sem obrigação.');
+  return { content: l.join('\n'), actions: [{ type: 'go', label: 'Ver meu plano', tab: 'plano' }] };
+}

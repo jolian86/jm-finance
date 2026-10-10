@@ -1,4 +1,4 @@
-import { isFlow, flowReply } from './coachReplies';
+import { isFlow, flowReply, isObjection, objectionReply } from './coachReplies';
 import { norm as nrm, isPath, isExpense, askedOthers, NAME_RX, pathReply, expenseReply, othersAnswer, greet } from './coachReplies';
 import type { ChatAction, ChatMessage, ChatProvider, ChatReply, FinancialSummary as S } from './types';
 
@@ -224,6 +224,7 @@ function route(text: string, s: S, h: ChatMessage[]): string | ChatReply {
   if (/^(ajuda|help|menu|o que voce faz|o que vc faz)/.test(t2)) return HELP;
   if (!s.hasData) return noData();
   if (askedOthers(h) && t2.length < 160 && !isPath(t2) && !/\?/.test(text)) return othersAnswer(s, text);
+  if (isObjection(t2)) return objectionReply(s, t2);
   if (/diaria|por dia|trabalhei hoje|bico|dias trabalh/.test(t)) return daily(s);
   if (/\bplr\b|\bppr\b|13\s*(º|o\b)|decimo|restituic|honorari|recebiv|receita(s)? futura|\bbonus\b|safra|repasse|\bexito\b|sucumb|\bcomiss/.test(t) || (/ferias/.test(t) && /receb|terco|1\/3|dinheiro/.test(t))) return futureIncome(s, t);
   if (/vender|patrimonio|bens?\b|imovel|usar (meu|minha)/.test(t)) return assets(s);

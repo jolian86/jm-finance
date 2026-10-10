@@ -21,7 +21,7 @@ const json = (body: unknown, status: number, h: Record<string, string>) => new R
 
 export const onRequestOptions = ({ request, env }: Ctx) => new Response(null, { status: 204, headers: cors(request, env) });
 /** status: o app pergunta se a IA está ligada (para mostrar ou não "Modo simulação") */
-export const onRequestGet = ({ request, env }: Ctx) => json({ configured: !!env.GEMINI_API_KEY, model: env.GEMINI_MODEL || 'gemini-3.8-flash', limit: Number(env.DAILY_LIMIT || 30) }, 200, cors(request, env));
+export const onRequestGet = ({ request, env }: Ctx) => json({ configured: !!env.GEMINI_API_KEY, model: env.GEMINI_MODEL || 'gemini-flash-latest', limit: Number(env.DAILY_LIMIT || 30) }, 200, cors(request, env));
 
 export async function onRequestPost({ request, env }: Ctx) {
   const h = cors(request, env);
@@ -43,15 +43,17 @@ export async function onRequestPost({ request, env }: Ctx) {
   if (used >= limit) return json({ error: 'daily_limit', limit }, 429, h);
   await env.JM_AI_LIMITS.put(key, String(used + 1), { expirationTtl: 60 * 60 * 30 });
 
-  const model = env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const model = env.GEMINI_MODEL || 'gemini-flash-latest';
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: `${SYSTEM_PROMPT}\n\n${buildContext(body.financialSummary)}` }] }, contents: msgs,
-      generationConfig: { maxOutputTokens: 1200, temperature: 0.6 } }),
+      generationConfig: { maxOutputTokens: 8192, temperature: 0.6 } }),
   });
   if (!r.ok) return json({ error: 'upstream', status: r.status }, 502, h); // sem registrar o conteúdo
   const j = await r.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const reply = (j.candidates?.[0]?.content?.parts ?? []).map(p => p.text || '').join('').trim();
+  // o app mostra texto simples: tira restos de markdown
+  const reply = (j.candidates?.[0]?.content?.parts ?? []).map(p => p.text || '').join('')
+    .replace(/\*\*(.+?)\*\*/g, '$1').replace(/^#{1,6}\s*/gm, '').replace(/^\s*[-*]\s+/gm, '• ').replace(/^-{3,}\s*$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
   if (!reply) return json({ error: 'empty' }, 502, h);
   return json({ reply, remaining: Math.max(0, limit - used - 1) }, 200, h);
 }
