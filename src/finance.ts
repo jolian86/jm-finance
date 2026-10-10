@@ -1,6 +1,7 @@
+import { cashflow, dayRanges } from './cashflow';
 import { Receivable, RecvMode, cleanReceivables, exampleReceivables, planLumps, forecast, lumpSentence, modeValue, Lump } from './recv';
 /** variable: renda variável; history: valores dos últimos meses (mais antigo → mais recente). Com 3+ meses, amount = base conservadora. */
-export type Income = { id: string; name: string; amount: number; variable?: boolean; history?: number[]; kind?: 'mensal' | 'diaria'; daily?: Daily };
+export type Income = { id: string; name: string; amount: number; /** dia do mês em que o dinheiro cai (opcional) */ payDay?: number; variable?: boolean; history?: number[]; kind?: 'mensal' | 'diaria'; daily?: Daily };
 /** Renda por dia (diária). rate = quanto ganha por dia; days = quantos dias costuma trabalhar no mês; log = dias trabalhados ('AAAA-MM-DD' → quanto ganhou). */
 export type Daily = { rate: number; days: number; log?: Record<string, number> };
 /** kind é decidido pelo app (inferKind) a partir da categoria e do nome; kindSet = o usuário ajustou manualmente (então não muda sozinho). */
@@ -66,7 +67,7 @@ export type Data = {
   receivables: Receivable[];
 };
 /** Versão do formato dos dados (sobe quando o formato muda; dados antigos passam por migrate). */
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 /** terms: aceite dos Termos de Uso/Política de Privacidade (versão + data/hora ISO). */
 export type Settings = { alertTime: string; name?: string; firstSeenAt?: string; lastBackupAt?: string; terms?: { version: string; acceptedAt: string }; recvMode?: RecvMode };
 export const DEFAULT_SETTINGS: Settings = { alertTime: '09:00' };
@@ -197,7 +198,7 @@ export function migrate(raw: unknown): Data {
   const arr = <T,>(v: unknown) => (Array.isArray(v) ? v as T[] : []);
   return {
     ...emptyData(), ...d,
-    incomes: arr<Income>(d.incomes).filter(o => o && typeof o === 'object').map(i => withDaily(cleanDaily({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable }))), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: (e.kind === 'variavel' ? 'variavel' : 'fixa') as Expense['kind'], split: e.category === 'cartao' ? cleanSplit(e.split) : undefined })).map(e => ({ ...e, kindSet: typeof e.kindSet === 'boolean' ? e.kindSet : e.kind !== inferKind(e.category, e.name) })),
+    incomes: arr<Income>(d.incomes).filter(o => o && typeof o === 'object').map(i => withDaily(cleanDaily({ ...i, history: Array.isArray(i.history) ? i.history.map(v => Number(v) || 0).slice(-12) : undefined, variable: !!i.variable, payDay: Number.isInteger(Number(i.payDay)) && Number(i.payDay) >= 1 && Number(i.payDay) <= 31 ? Number(i.payDay) : undefined }))), receivables: cleanReceivables(d.receivables), expenses: arr<Expense>(d.expenses).filter(o => o && typeof o === 'object').map(e => ({ ...e, id: String(e.id || uid()), name: String(e.name ?? ''), amount: Number(e.amount) || 0, category: e.category in CATEGORIES ? e.category : 'outros', kind: (e.kind === 'variavel' ? 'variavel' : 'fixa') as Expense['kind'], split: e.category === 'cartao' ? cleanSplit(e.split) : undefined })).map(e => ({ ...e, kindSet: typeof e.kindSet === 'boolean' ? e.kindSet : e.kind !== inferKind(e.category, e.name) })),
     debts: arr<Debt>(d.debts).filter(o => o && typeof o === 'object').map(x => { const inst = Math.round(Number(x.installments)); return { ...x, id: String(x.id || uid()), name: String(x.name ?? ''), type: x.type in DEBT_TYPES ? x.type : 'outro', balance: Number(x.balance) || 0, rate: Math.max(0, Number(x.rate) || 0), minPayment: Number(x.minPayment) || 0, rateUnit: x.rateUnit === 'aa' ? 'aa' : 'am', rateMode: x.rateMode === 'calc' || x.rateMode === 'media' ? x.rateMode : 'sei', installments: inst >= 1 && inst <= 600 ? inst : undefined, payAuto: !!x.payAuto }; }),
     assets: arr<Asset>(d.assets).filter(o => o && typeof o === 'object').map(x => { const name = String(x.name ?? ''); const type = assetTypeOf(x.type, name); const mo = Number(x.monthly); return { ...x, id: String(x.id || uid()), name, type, value: Number(x.value) || 0, liquid: ASSET_TYPES[type].liquid, monthly: mo > 0 ? mo : undefined, expenseId: typeof x.expenseId === 'string' ? x.expenseId : undefined, forRetirement: !!x.forRetirement }; }),
     goals: arr<Goal>(d.goals).filter(o => o && typeof o === 'object').map(g => ({ ...g, id: String(g.id || uid()), name: String(g.name ?? ''), type: g.type in GOAL_TYPES ? g.type : 'outro', target: Number(g.target) || 0, saved: Number(g.saved) || 0, date: typeof g.date === 'string' ? g.date : ym(12), priority: g.priority || 'media' as Goal['priority'], retire: migrateRetire(g.retire) })), reserve: Number(d.reserve) || 0,
@@ -223,7 +224,7 @@ const ym = (monthsAhead: number) => { const t = new Date(); t.setMonth(t.getMont
 export const exampleData = (): Data => { const prevE = uid(), segE = uid(); return {
   isExample: true, month: thisMonth(), actuals: {}, history: [], dismissedAlerts: [], settings: { ...DEFAULT_SETTINGS },
   reserve: 800,
-  incomes: [{ id: uid(), name: 'Salário', amount: 3300 }, { id: uid(), name: 'Freelas (variável)', amount: varStats([1500, 1300, 1800, 1200, 1600, 1250]).base, variable: true, history: [1500, 1300, 1800, 1200, 1600, 1250] },
+  incomes: [{ id: uid(), name: 'Salário', amount: 3300, payDay: 5 }, { id: uid(), name: 'Freelas (variável)', amount: varStats([1500, 1300, 1800, 1200, 1600, 1250]).base, variable: true, history: [1500, 1300, 1800, 1200, 1600, 1250] },
     withDaily({ id: uid(), name: 'Diárias de garçom (fins de semana)', amount: 0, kind: 'diaria', daily: { rate: 120, days: 6, log: exampleDailyLog(120) } })],
   receivables: exampleReceivables(3300),
   expenses: [
@@ -393,6 +394,11 @@ export function actionPlan(d: Data) {
     title: crisis ? 'Ajuste o orçamento (modo recuperação)' : 'Ajuste o orçamento',
     text: `Uma divisão que funciona: até ${pct(guide.n)} da renda (${brl(targetNeeds)}) para o essencial, ${pct(guide.w)} (${brl(targetWants)}) para o que não é essencial e ${pct(guide.s)} (${brl(income * guide.s)}) para quitar dívidas e guardar. Estes cortes liberam cerca de ${brl(savings)}/mês:`,
     items: cuts.map(c => `${c.name}: de ${brl(c.current)} para ${brl(c.suggested)}`),
+  });
+  const fl = cashflow(d);
+  if (fl?.early.length) steps.push({
+    title: 'Ajuste as datas de vencimento', text: `Algumas contas vencem quando o dinheiro do mês já acabou${fl.tight.length ? ` (dias de aperto: ${dayRanges(fl.tight)})` : ''}. Mudar o vencimento costuma ser grátis: é só pedir à empresa ou ao banco.`,
+    items: fl.early.slice(0, 5).map(e => `${e.name} (${brl(e.amount)}): vence dia ${e.day} — peça para o dia ${e.suggest}, logo depois que você recebe.`),
   });
   if (r.expensive.length) steps.push({
     title: 'Renegocie as dívidas mais caras', text: 'Troque dívida cara por dívida barata. Ligue para o banco ou use o Desenrola/Serasa Limpa Nome/Registrato.',

@@ -1,3 +1,4 @@
+import { cashflow } from './cashflow';
 import { allOccurrences, fmtOccDate, CERT } from './recv';
 import { Data, Category, CATEGORIES, diagnose, evaluateGoals, brl, thisMonth, fmtAm, isDaily, dailyStats } from './finance';
 import { plannedByCategory, ymShort, needsClosing } from './history';
@@ -33,6 +34,13 @@ export function computeAlerts(d: Data, now = new Date()): Alert[] {
   if (!d.isExample && d.incomes.length && ref) {
     const days = Math.floor((Date.now() - Date.parse(ref)) / 864e5);
     if (days > 30) out.push({ id: `backup-${d.month}`, level: 'info', title: 'Faça um backup', text: `${d.settings.lastBackupAt ? `Seu último backup foi há ${days} dias.` : 'Você ainda não fez nenhum backup.'} Seus dados ficam só neste aparelho: um backup leva segundos e protege contra troca de celular ou limpeza do navegador.`, tab: 'dados', cta: 'Fazer backup', action: 'backup' });
+  }
+  // v15: conta que vence antes do dinheiro cair (só quando a pessoa informa o dia que recebe)
+  const fl = cashflow(d);
+  for (const e of fl?.early ?? []) {
+    const left = (e.day - now.getDate() + 31) % 31;
+    if (left <= 5) out.push({ id: `flow-${e.id}-${thisMonth()}`, level: 'warn', tag: 'Dia de aperto', title: `${e.name} vence antes do dinheiro cair`,
+      text: `Vence dia ${e.day} (${brl(e.amount)}), quando o dinheiro do mês costuma já ter acabado. Separe esse valor agora ou peça para mudar o vencimento para o dia ${e.suggest}, logo depois que você recebe.`, tab: 'diagnostico', cta: 'Ver o mês dia a dia' });
   }
   // diárias: mês bem abaixo do esperado (só quando a pessoa marca os dias)
   for (const i of d.incomes.filter(isDaily)) {
