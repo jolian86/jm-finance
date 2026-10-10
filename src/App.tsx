@@ -116,7 +116,7 @@ export default function App() {
       <AnimatePresence>{pick === 'pick' && <ThemePicker key="tp" theme={theme} onPick={setThemeTo} onDone={() => setPick('tip')} />}{pick === 'tip' && <ThemeTip key="tt" onClose={() => setPick('')} />}</AnimatePresence>
       <AnimatePresence>{termsOpen && <TermsSheet acceptance={data.settings.terms} onClose={() => setTermsOpen(false)} onDeleteAll={async () => { await deleteAllData(); location.replace(location.pathname); }} />}</AnimatePresence>
       <nav>
-        {([['inicio', Icon.home, 'Início'], ['dados', Icon.edit, 'Meus dados'], ['diagnostico', Icon.pulse, 'Diagnóstico'], ['plano', Icon.compass, 'Plano'], ['objetivos', Icon.target, 'Objetivos']] as const).map(([k, I, l]) =>
+        {([['inicio', Icon.home, 'Início'], ['dados', Icon.edit, 'Meus dados'], ['diagnostico', Icon.pulse, 'Diagnóstico'], ['objetivos', Icon.target, 'Objetivos'], ['plano', Icon.compass, 'Plano']] as const).map(([k, I, l]) =>
           <button key={k} className={tab === k || (tab === 'simulador' && k === 'plano') ? 'on' : ''} onClick={() => go(k)} aria-current={tab === k ? 'page' : undefined}>
             {(tab === k || (tab === 'simulador' && k === 'plano')) && <motion.span layoutId="navpill" className="navpill" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
             <span className="ni"><I /></span>{l}</button>)}

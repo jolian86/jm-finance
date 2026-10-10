@@ -1,0 +1,12 @@
+Regressão no build final v15 (76baf81, index-CoYziMjJ.js) — 7 tamanhos
+v14: checagens: 196 | falhas: nenhuma 
+v12l: checagens: 245 | falhas: nenhuma 
+v12d: checagens: 245 | falhas: nenhuma 
+v13: checagens: 686 | falhas: nenhuma 
+v11light: checagens: 427 | falhas: nenhuma 
+v10light: falhas: nenhuma 
+v9light: checagens: 315 | falhas: nenhuma erros: nenhum 
+v11dark: checagens: 427 | falhas: nenhuma erros: nenhum 
+v10dark: falhas: nenhuma erros: nenhum 
+v9dark: checagens: 315 | falhas: nenhuma erros: nenhum 
+Depois de reordenar as abas (Início, Meus dados, Diagnóstico, Objetivos, Plano): v15 360x740 claro+escuro: checagens 54, falhas nenhuma, erros nenhum
